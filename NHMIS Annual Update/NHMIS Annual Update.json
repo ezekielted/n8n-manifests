@@ -1,0 +1,1090 @@
+﻿{
+  "created": "1770376885557",
+  "updated": "1770376885557",
+  "name": "NHMIS Annual Update",
+  "description": "",
+  "tags": [],
+  "pieces": [
+    "@activepieces/piece-schedule",
+    "@activepieces/piece-math-helper",
+    "@activepieces/piece-google-sheets",
+    "@activepieces/piece-http",
+    "@activepieces/piece-data-summarizer",
+    "@activepieces/piece-slack"
+  ],
+  "template": {
+    "displayName": "NHMIS Annual Update",
+    "trigger": {
+      "name": "trigger",
+      "valid": true,
+      "displayName": "Every Hour",
+      "type": "PIECE_TRIGGER",
+      "settings": {
+        "pieceName": "@activepieces/piece-schedule",
+        "pieceVersion": "0.1.12",
+        "input": {
+          "run_on_weekends": true
+        },
+        "inputUiInfo": {
+          "customizedInputs": {}
+        },
+        "triggerName": "every_hour"
+      },
+      "nextAction": {
+        "name": "step_11",
+        "skip": false,
+        "type": "PIECE",
+        "valid": true,
+        "settings": {
+          "input": {
+            "first_number": "0",
+            "second_number": "100000000"
+          },
+          "pieceName": "@activepieces/piece-math-helper",
+          "actionName": "generateRandom_math",
+          "inputUiInfo": {
+            "customizedInputs": {}
+          },
+          "pieceVersion": "0.0.17",
+          "errorHandlingOptions": {
+            "retryOnFailure": {
+              "value": false
+            },
+            "continueOnFailure": {
+              "value": false
+            }
+          }
+        },
+        "nextAction": {
+          "name": "step_9",
+          "skip": false,
+          "type": "PIECE",
+          "valid": true,
+          "settings": {
+            "input": {
+              "auth": "{{connections['jhHFXwrgEyuw8WFga40hO']}}",
+              "memKey": "{{step_11}}",
+              "sheetId": 1540952500,
+              "startRow": 1,
+              "groupSize": "1000",
+              "spreadsheetId": "1cbUJC2fL8hn8vtvA5byse4oXXU9tpeKUnd8c83ff0_k",
+              "includeTeamDrives": true
+            },
+            "pieceName": "@activepieces/piece-google-sheets",
+            "actionName": "get_next_rows",
+            "inputUiInfo": {
+              "customizedInputs": {}
+            },
+            "pieceVersion": "0.12.12",
+            "errorHandlingOptions": {
+              "retryOnFailure": {
+                "value": false
+              },
+              "continueOnFailure": {
+                "value": false
+              }
+            }
+          },
+          "nextAction": {
+            "name": "step_3",
+            "type": "PIECE",
+            "valid": true,
+            "settings": {
+              "input": {
+                "first_number": "1",
+                "second_number": "1000000000"
+              },
+              "pieceName": "@activepieces/piece-math-helper",
+              "actionName": "generateRandom_math",
+              "inputUiInfo": {
+                "customizedInputs": {}
+              },
+              "pieceVersion": "0.0.17",
+              "errorHandlingOptions": {
+                "retryOnFailure": {
+                  "value": false
+                },
+                "continueOnFailure": {
+                  "value": false
+                }
+              }
+            },
+            "nextAction": {
+              "name": "step_10",
+              "type": "PIECE",
+              "valid": true,
+              "settings": {
+                "input": {
+                  "auth": "{{connections['jhHFXwrgEyuw8WFga40hO']}}",
+                  "memKey": "{{step_3}}",
+                  "sheet_id": 13371671,
+                  "startRow": 1,
+                  "groupSize": "10000000",
+                  "spreadsheet_id": "1T8YfA2Ktpb_tqf1jkc3wlx6HIRTBUnkp3sdWlmkPBCk",
+                  "include_team_drives": true
+                },
+                "pieceName": "@activepieces/piece-google-sheets",
+                "actionName": "get_next_rows",
+                "inputUiInfo": {
+                  "customizedInputs": {}
+                },
+                "pieceVersion": "0.11.14",
+                "errorHandlingOptions": {
+                  "retryOnFailure": {
+                    "value": false
+                  },
+                  "continueOnFailure": {
+                    "value": false
+                  }
+                }
+              },
+              "nextAction": {
+                "name": "step_14",
+                "type": "CODE",
+                "valid": true,
+                "settings": {
+                  "input": {
+                    "jsonArray": "{{step_10}}",
+                    "maxRowsPerSheet": "1000"
+                  },
+                  "sourceCode": {
+                    "code": "function flattenObject(obj) {\n  const flattened = {};\n  Object.keys(obj).forEach(key => {\n    if (typeof obj[key] === 'object' && obj[key] !== null) {\n      const flatObject = flattenObject(obj[key]);\n      Object.keys(flatObject).forEach(flatKey => {\n        flattened[`${key}_${flatKey}`] = flatObject[flatKey];\n      });\n    } else {\n      flattened[key] = obj[key];\n    }\n  });\n  return flattened;\n}\n\nexport const code = async (inputs) => {\n  const flattenedJsonArray = inputs.jsonArray.map(obj => flattenObject(obj));\n  const keys = Object.keys(flattenedJsonArray[0]);\n  const header = keys.join(',');\n  let csvContent = header + '\\n';\n  let rowCount = 0;\n\n  for (const obj of flattenedJsonArray) {\n    if (rowCount >= inputs.maxRowsPerSheet) {\n      break;\n    }\n    const row = keys.map(key => {\n      const value = obj[key];\n      return value === null || value === undefined \n        ? ''\n        : typeof value === 'string' && value.includes(',') \n          ? `\"${value.replace(/\"/g, '\"\"')}\"` \n          : String(value);\n    }).join(',');\n    csvContent += row + '\\n';\n    rowCount++;\n  }\n\n  // Remove first row (headers) and first column values\n  const rows = csvContent.trim().split('\\n');\n  \n  // Remove the first row (header)\n  rows.shift();\n  \n  // Process the rows to remove the first column value from each row\n  const processedRows = rows.map(row => {\n    const columns = row.split(',');\n    // Remove the first column value\n    columns.shift();\n    // Return the remaining columns joined back into a CSV row\n    return columns.join(',');\n  });\n\n  // Join the processed rows back into a CSV string\n  const finalCsvContent = processedRows.join('\\n');\n\n  return finalCsvContent.trim(); // Remove trailing newline if any\n};",
+                    "packageJson": "{}"
+                  },
+                  "inputUiInfo": {
+                    "customizedInputs": {}
+                  },
+                  "errorHandlingOptions": {
+                    "retryOnFailure": {
+                      "value": false
+                    },
+                    "continueOnFailure": {
+                      "value": false
+                    }
+                  }
+                },
+                "nextAction": {
+                  "name": "step_7",
+                  "skip": true,
+                  "type": "CODE",
+                  "valid": true,
+                  "settings": {
+                    "input": {
+                      "apiSheet": "{{step_9}}"
+                    },
+                    "sourceCode": {
+                      "code": "export const code = async (inputs) => {\n  const { apiSheet } = inputs;\n\n  // Ensure input is an array\n  if (!Array.isArray(apiSheet)) {\n    throw new Error(\"Invalid input: 'apiSheet' must be an array\");\n  }\n\n  // Modify each row\n  const updatedSheet = apiSheet.map((row) => {\n    const values = row.values;\n\n    // Check if 'E' field exists\n    if (values && values.E) {\n      // Remove `.csv` and replace `true` with `false`\n      let updatedLink = values.E.replace(\".csv\", \"\").replace(/true/g, \"false\");\n      values.E = updatedLink;\n    }\n\n    return {\n      ...row,\n      values,\n    };\n  });\n\n  return updatedSheet;\n};",
+                      "packageJson": "{}"
+                    },
+                    "inputUiInfo": {
+                      "customizedInputs": {}
+                    },
+                    "errorHandlingOptions": {
+                      "retryOnFailure": {
+                        "value": false
+                      },
+                      "continueOnFailure": {
+                        "value": false
+                      }
+                    }
+                  },
+                  "nextAction": {
+                    "name": "step_32",
+                    "skip": true,
+                    "type": "CODE",
+                    "valid": true,
+                    "settings": {
+                      "input": {
+                        "api_links": "{{step_7}}",
+                        "bad_links": "{{step_33}}"
+                      },
+                      "sourceCode": {
+                        "code": "export const code = async (inputs) => {\n  const api_links = inputs.api_links || [];\n  const bad_links = inputs.bad_links || [];\n\n  if (api_links.length === 0) return api_links;\n\n  // Extract header row and its data\n  const headerRow = api_links[0];\n  \n  // Build a Set of bad API links (skip header row)\n  const badLinkSet = new Set(\n    bad_links.slice(1).map(item => item.values.A?.trim()).filter(Boolean)\n  );\n\n  // Filter out rows whose API Link (E) matches a bad link\n  const filteredRows = api_links.slice(1).filter(item => {\n    const apiLink = item.values.E?.trim();\n    return apiLink && !badLinkSet.has(apiLink);\n  });\n\n  // Return header + good rows\n  return [headerRow, ...filteredRows];\n};",
+                        "packageJson": "{}"
+                      },
+                      "inputUiInfo": {
+                        "customizedInputs": {}
+                      },
+                      "errorHandlingOptions": {
+                        "retryOnFailure": {
+                          "value": false
+                        },
+                        "continueOnFailure": {
+                          "value": false
+                        }
+                      }
+                    },
+                    "nextAction": {
+                      "name": "step_19",
+                      "skip": false,
+                      "type": "PIECE",
+                      "valid": true,
+                      "settings": {
+                        "input": {
+                          "first_number": "0",
+                          "second_number": "1000000000"
+                        },
+                        "pieceName": "@activepieces/piece-math-helper",
+                        "actionName": "generateRandom_math",
+                        "inputUiInfo": {
+                          "customizedInputs": {}
+                        },
+                        "pieceVersion": "0.0.17",
+                        "errorHandlingOptions": {
+                          "retryOnFailure": {
+                            "value": false
+                          },
+                          "continueOnFailure": {
+                            "value": false
+                          }
+                        }
+                      },
+                      "nextAction": {
+                        "name": "step_15",
+                        "skip": false,
+                        "type": "PIECE",
+                        "valid": true,
+                        "settings": {
+                          "input": {
+                            "auth": "{{connections['jhHFXwrgEyuw8WFga40hO']}}",
+                            "memKey": "{{step_19}}",
+                            "sheetId": 0,
+                            "startRow": "2",
+                            "groupSize": "10",
+                            "spreadsheetId": "1IYoPuveZ164yPmRKjVGn7NmsXUVS0e0E_vLABqN4OYk",
+                            "includeTeamDrives": true
+                          },
+                          "pieceName": "@activepieces/piece-google-sheets",
+                          "actionName": "get_next_rows",
+                          "inputUiInfo": {
+                            "customizedInputs": {}
+                          },
+                          "pieceVersion": "0.12.12",
+                          "errorHandlingOptions": {
+                            "retryOnFailure": {
+                              "value": false
+                            },
+                            "continueOnFailure": {
+                              "value": false
+                            }
+                          }
+                        },
+                        "nextAction": {
+                          "name": "step_17",
+                          "skip": false,
+                          "type": "LOOP_ON_ITEMS",
+                          "valid": true,
+                          "settings": {
+                            "items": "{{step_9}}",
+                            "inputUiInfo": {
+                              "customizedInputs": {}
+                            }
+                          },
+                          "displayName": "Loop on Items",
+                          "firstLoopAction": {
+                            "name": "step_12",
+                            "skip": false,
+                            "type": "ROUTER",
+                            "valid": true,
+                            "children": [
+                              {
+                                "name": "step_1",
+                                "type": "PIECE",
+                                "valid": true,
+                                "settings": {
+                                  "input": {
+                                    "url": "{{step_17['item']['values']['E']}}",
+                                    "body": {},
+                                    "method": "GET",
+                                    "headers": {
+                                      "Authorization": "Basic Rk1PSF9lUEhEOkU0ZWRhdGFAZCMhJDIwMjU="
+                                    },
+                                    "timeout": "30",
+                                    "failsafe": false,
+                                    "body_type": "none",
+                                    "use_proxy": false,
+                                    "queryParams": {},
+                                    "proxy_settings": {}
+                                  },
+                                  "pieceName": "@activepieces/piece-http",
+                                  "actionName": "send_request",
+                                  "inputUiInfo": {
+                                    "schema": {
+                                      "body": {},
+                                      "proxy_settings": {}
+                                    },
+                                    "customizedInputs": {
+                                      "method": false
+                                    }
+                                  },
+                                  "pieceVersion": "0.5.1",
+                                  "errorHandlingOptions": {
+                                    "retryOnFailure": {
+                                      "value": true
+                                    },
+                                    "continueOnFailure": {
+                                      "value": true
+                                    }
+                                  }
+                                },
+                                "nextAction": {
+                                  "name": "step_8",
+                                  "type": "ROUTER",
+                                  "valid": true,
+                                  "children": [
+                                    {
+                                      "name": "step_6",
+                                      "type": "CODE",
+                                      "valid": true,
+                                      "settings": {
+                                        "input": {
+                                          "rows": "{{step_1['body']['rows']}}",
+                                          "headers": "{{step_1['body']['headers']}}",
+                                          "metaData": "{{step_1['body']['metaData']}}",
+                                          "rowContext": "{{step_1['body']['rowContext']}}"
+                                        },
+                                        "sourceCode": {
+                                          "code": "export const code = async (inputs) => {\n    const structuredData = [];\n\n    const headers = inputs.headers.map(header => header.column);\n    const items = inputs.metaData.items;\n\n    inputs.rows.forEach(row => {\n        const rowObject = {};\n\n        rowObject['periodid'] = row[1];\n        rowObject['periodname'] = items[row[1]]?.name;\n        rowObject['periodcode'] = items[row[1]]?.code || '';\n        rowObject['perioddescription'] = items[row[1]]?.description || '';\n\n        rowObject['dataid'] = row[0];\n        rowObject['dataname'] = items[row[0]]?.name;\n        rowObject['datacode'] = items[row[0]]?.code || '';\n        rowObject['datadescription'] = items[row[0]]?.description || '';\n\n        rowObject['organisationunitid'] = row[2];\n        rowObject['organisationunitname'] = items[row[2]]?.name;\n        rowObject['organisationunitcode'] = items[row[2]]?.code || '';\n        rowObject['organisationunitdescription'] = items[row[2]]?.description || '';\n\n        rowObject['Total'] = row[3];\n\n        structuredData.push(rowObject);\n    });\n\n    // Interchange the period* and organisationunit* fields after building the structure\n    const finalOutput = structuredData.map(obj => {\n        return {\n            ...obj,\n            periodid: obj.organisationunitid,\n            periodname: obj.organisationunitname,\n            periodcode: obj.organisationunitcode,\n            perioddescription: obj.organisationunitdescription,\n\n            organisationunitid: obj.periodid,\n            organisationunitname: obj.periodname,\n            organisationunitcode: obj.periodcode,\n            organisationunitdescription: obj.perioddescription,\n        };\n    });\n\n    return finalOutput;\n};",
+                                          "packageJson": "\n      {\n        \"dependencies\": {\n        }\n      }"
+                                        },
+                                        "inputUiInfo": {},
+                                        "errorHandlingOptions": {
+                                          "retryOnFailure": {
+                                            "value": false
+                                          },
+                                          "continueOnFailure": {
+                                            "value": false
+                                          }
+                                        }
+                                      },
+                                      "nextAction": {
+                                        "name": "step_2",
+                                        "type": "CODE",
+                                        "valid": true,
+                                        "settings": {
+                                          "input": {
+                                            "jsonArray": "{{step_6}}",
+                                            "maxRowsPerSheet": "100000000"
+                                          },
+                                          "sourceCode": {
+                                            "code": "function flattenObject(obj) {\n  const flattened = {};\n  Object.keys(obj).forEach(key => {\n    if (typeof obj[key] === 'object' && obj[key] !== null) {\n      const flatObject = flattenObject(obj[key]);\n      Object.keys(flatObject).forEach(flatKey => {\n        flattened[`${key}_${flatKey}`] = flatObject[flatKey];\n      });\n    } else {\n      flattened[key] = obj[key];\n    }\n  });\n  return flattened;\n}\n\nexport const code = async (inputs) => {\n  const flattenedJsonArray = inputs.jsonArray.map(obj => flattenObject(obj));\n  const keys = Object.keys(flattenedJsonArray[0]);\n  const header = keys.join(',');\n  let csvContent = header + '\\n';\n  let rowCount = 0;\n\n  for (const obj of flattenedJsonArray) {\n    if (rowCount >= inputs.maxRowsPerSheet) {\n      break;\n    }\n    const row = keys.map(key => {\n      const value = obj[key];\n      return value === null || value === undefined \n        ? ''\n        : typeof value === 'string' && value.includes(',') \n          ? `\"${value.replace(/\"/g, '\"\"')}\"` \n          : String(value);\n    }).join(',');\n    csvContent += row + '\\n';\n    rowCount++;\n  }\n\n  return csvContent.trim(); // Remove trailing newline\n};\n\n",
+                                            "packageJson": "\n      {\n        \"dependencies\": {\n        }\n      }"
+                                          },
+                                          "inputUiInfo": {},
+                                          "errorHandlingOptions": {
+                                            "retryOnFailure": {
+                                              "value": true
+                                            },
+                                            "continueOnFailure": {
+                                              "value": false
+                                            }
+                                          }
+                                        },
+                                        "nextAction": {
+                                          "name": "step_4",
+                                          "type": "CODE",
+                                          "valid": true,
+                                          "settings": {
+                                            "input": {
+                                              "rawData": "{{step_2}}",
+                                              "vlookup": "{{step_14}}"
+                                            },
+                                            "sourceCode": {
+                                              "code": "export const code = async (inputs: { rawData: string, vlookup: string }) => {\n  const { rawData, vlookup } = inputs;\n\n  // Parse the rawData CSV string into rows\n  const rawRows = rawData.split('\\n');\n  let headers = rawRows[0].split(',');\n\n  // Parse the vlookup CSV string into rows\n  const vlookupRows = vlookup.split('\\n');\n  const vlookupHeaders = vlookupRows[0].split(',');\n\n  // Clean up column names by trimming extra spaces\n  const cleanHeader = (header: string) => header.trim().toLowerCase();\n\n  // Ensure the vlookup contains the required columns\n  const nhmisIndicatorIndex = vlookupHeaders.findIndex(header => cleanHeader(header) === 'indicators (nhmis)');\n  const msdatIndicatorIndex = vlookupHeaders.findIndex(header => cleanHeader(header) === 'indicators (msdat)');\n  const nhmisLocationIndex = vlookupHeaders.findIndex(header => cleanHeader(header) === 'location(nhmis)');\n  const msdatLocationIndex = vlookupHeaders.findIndex(header => cleanHeader(header) === 'location(msdat)');\n\n  if (\n    nhmisIndicatorIndex === -1 ||\n    msdatIndicatorIndex === -1 ||\n    nhmisLocationIndex === -1 ||\n    msdatLocationIndex === -1\n  ) {\n    throw new Error(\"The provided vlookup CSV is missing required columns.\");\n  }\n\n  // Create a mapping from the vlookup CSV\n  const nhmisToMsdatMapping = {\n    indicators: {},\n    locations: {}\n  };\n\n  vlookupRows.slice(1).forEach((row) => {\n    const columns = row.split(',');\n    const nhmisIndicator = columns[nhmisIndicatorIndex]?.trim();\n    const msdatIndicator = columns[msdatIndicatorIndex]?.trim();\n    const nhmisLocation = columns[nhmisLocationIndex]?.trim();\n    const msdatLocation = columns[msdatLocationIndex]?.trim();\n\n    if (nhmisIndicator && msdatIndicator) {\n      nhmisToMsdatMapping.indicators[nhmisIndicator.toLowerCase()] = msdatIndicator;\n    }\n\n    if (nhmisLocation && msdatLocation) {\n      nhmisToMsdatMapping.locations[nhmisLocation.toLowerCase()] = msdatLocation;\n    }\n  });\n\n  // Restructure to remove columns with no values or columns with 'id' in their headers\n  const columnsWithValues = headers.map((header, index) => {\n    const columnHasValue = rawRows.slice(1).some(row => row.split(',')[index].trim() !== '');\n    return columnHasValue && !header.toLowerCase().includes('id') ? header : null;\n  });\n\n  // Filter out headers that have no corresponding values or contain 'id'\n  headers = headers.filter((header, index) => columnsWithValues[index] !== null);\n  let filteredRows = rawRows.map(row => {\n    const columns = row.split(',');\n    return columns.filter((_, index) => columnsWithValues[index] !== null).join(',');\n  });\n\n  // Renaming column headers based on specific matches (case-insensitive)\n  headers = headers.map(header => {\n    const trimmedHeader = header.trim().toLowerCase(); // Convert to lowercase for case-insensitive matching\n\n    if (trimmedHeader === 'dataname') {\n      return 'indicator';\n    }\n    if (trimmedHeader === 'periodname') {\n      return 'period';\n    }\n    if (trimmedHeader === 'total') {\n      return 'value';\n    }\n    if (trimmedHeader === 'organisationunitname') {\n      return 'location';\n    }\n    return header.trim(); // Return the original header if no match\n  });\n\n  // Check if 'datasource' and 'value_type' exist, if not, add them\n  const hasDataSource = headers.includes('datasource');\n  const hasValueType = headers.includes('value_type');\n\n  if (!hasDataSource) {\n    headers.push('datasource');\n  }\n  if (!hasValueType) {\n    headers.push('value_type');\n  }\n\n  // Replace the header row with the renamed headers\n  filteredRows[0] = headers.join(',');\n\n  // Process each row\n  const processedRows = filteredRows.map((row, rowIndex) => {\n    if (rowIndex === 0) return row; // Skip header row as it is already processed\n\n    const columns = row.split(',');\n\n    // Process each column\n    const processedColumns = columns.map((value, colIndex) => {\n      let trimmedValue = value.trim().toLowerCase(); // Make comparison case-insensitive\n\n      // Restructure the 'indicator' column using the vlookup for NHMIS to MSDAT mapping\n      if (headers[colIndex] === 'indicator' && nhmisToMsdatMapping.indicators[trimmedValue]) {\n        return nhmisToMsdatMapping.indicators[trimmedValue];\n      }\n\n      // Restructure the 'location' column using the vlookup for NHMIS to MSDAT mapping\n      if (headers[colIndex] === 'location' && nhmisToMsdatMapping.locations[trimmedValue]) {\n        return nhmisToMsdatMapping.locations[trimmedValue];\n      }\n\n      // Process floating point numbers\n      if (/^\\d+\\.\\d+$/.test(trimmedValue)) {\n        return Number(trimmedValue).toFixed(1);\n      }\n\n      // Process dates\n      const monthRegex = /\\b(January|February|March|April|May|June|July|August|September|October|November|December)\\s\\d{4}\\b/i;\n      const dashDateRegex = /\\b([a-z]{3})-(\\d{4})\\b/i;\n\n      let match = trimmedValue.match(monthRegex);\n      if (match) {\n        const date = new Date(match[0]);\n        const month = date.getMonth(); // Returns 0-11 where 0 is January and 11 is December\n        const monthAbbr = month === 8 ? 'Sept' : date.toLocaleString('default', { month: 'short' }); // Custom check for September\n        return `${monthAbbr} ${date.getFullYear()}`;\n      }\n\n      match = trimmedValue.match(dashDateRegex);\n      if (match) {\n        return `${match[1]} ${match[2]}`;\n      }\n\n      return value;\n    });\n\n    // Add 'NHMIS-DHIS2' and 'Routine' values to new columns if they were added\n    if (!hasDataSource) {\n      processedColumns.push('NHMIS-DHIS2');\n    }\n    if (!hasValueType) {\n      processedColumns.push('Routine');\n    }\n\n    // Delete rows where the 'value' column is empty or NULL\n    const valueColumnIndex = headers.indexOf('value');\n    if (valueColumnIndex !== -1 && !processedColumns[valueColumnIndex].trim()) {\n      return null; // Mark this row for deletion\n    }\n\n    return processedColumns.join(',');\n  }).filter(row => row !== null); // Filter out rows marked for deletion\n\n  // Reorder the columns\n  const desiredOrder = ['indicator', 'period', 'location', 'datasource', 'value', 'value_type'];\n  const reorderedRows = processedRows.map((row, rowIndex) => {\n    const columns = row.split(',');\n\n    // Reorder columns based on desiredOrder\n    const reorderedColumns = desiredOrder.map((header) => {\n      const index = headers.indexOf(header);\n      return columns[index];\n    });\n\n    return reorderedColumns.join(',');\n  });\n\n  // Join the processed and reordered rows back into a CSV string\n  const processedCsvString = reorderedRows.join('\\n');\n\n  return processedCsvString;\n};",
+                                              "packageJson": "{}"
+                                            },
+                                            "inputUiInfo": {
+                                              "customizedInputs": {}
+                                            },
+                                            "errorHandlingOptions": {
+                                              "retryOnFailure": {
+                                                "value": false
+                                              },
+                                              "continueOnFailure": {
+                                                "value": false
+                                              }
+                                            }
+                                          },
+                                          "nextAction": {
+                                            "name": "step_16",
+                                            "skip": false,
+                                            "type": "CODE",
+                                            "valid": true,
+                                            "settings": {
+                                              "input": {
+                                                "csv": "{{step_4}}",
+                                                "filename": "NHMIS-DHIS2 {{step_17['item']['values']['A']}} {{step_17['item']['values']['B']}}"
+                                              },
+                                              "sourceCode": {
+                                                "code": "import * as XLSX from \"xlsx\";\n\nexport const code = async (inputs: any) => {\n  const csvText = inputs.csv;\n  const rawFilename = inputs.filename || \"converted\";\n\n  if (!csvText || typeof csvText !== \"string\") {\n    throw new Error(\"Missing or invalid 'csv' input\");\n  }\n\n  if (typeof rawFilename !== \"string\") {\n    throw new Error(\"Invalid 'filename' input\");\n  }\n\n  // Convert CSV to worksheet\n  const worksheet = XLSX.utils.aoa_to_sheet(\n    csvText\n      .trim()\n      .split(\"\\n\")\n      .map((row) => row.split(\",\"))\n  );\n\n  // Create workbook\n  const workbook = XLSX.utils.book_new();\n  XLSX.utils.book_append_sheet(workbook, worksheet, \"Sheet1\");\n\n  // Convert workbook to buffer\n  const xlsxBuffer = XLSX.write(workbook, { type: \"buffer\", bookType: \"xlsx\" });\n\n  // Return plain base64 (NO data URI prefix)\n  const base64 = xlsxBuffer.toString(\"base64\");\n\n  return {\n    filename: `${rawFilename}.xlsx`,\n    mimeType: \"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\",\n    base64,\n  };\n};",
+                                                "packageJson": "{\n  \"dependencies\": {\n    \"xlsx\": \"0.18.5\"\n  }\n}"
+                                              },
+                                              "inputUiInfo": {},
+                                              "errorHandlingOptions": {
+                                                "retryOnFailure": {
+                                                  "value": false
+                                                },
+                                                "continueOnFailure": {
+                                                  "value": false
+                                                }
+                                              }
+                                            },
+                                            "nextAction": {
+                                              "name": "step_18",
+                                              "skip": false,
+                                              "type": "CODE",
+                                              "valid": true,
+                                              "settings": {
+                                                "input": {
+                                                  "name": "NHMIS-DHIS2 {{step_17['item']['values']['A']}} {{step_17['item']['values']['B']}}",
+                                                  "ordinary_data": "{{step_16['base64']}}"
+                                                },
+                                                "sourceCode": {
+                                                  "code": "export const code = async (inputs: any) => {\n  const name = inputs.name;\n  const base64 = inputs.ordinary_data;\n\n  if (!name || typeof name !== \"string\") {\n    throw new Error(\"Missing or invalid 'name' parameter.\");\n  }\n\n  if (!base64 || typeof base64 !== \"string\") {\n    throw new Error(\"Missing or invalid 'ordinary_data' base64 string.\");\n  }\n\n  const safeFileName =\n    name.slice(0, 95).replace(/\\W+/g, \"_\") + \".xlsx\";\n\n  // Base64 decode (no prefix expected!)\n  const binary = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));\n  const fileBlob = new Blob([binary], {\n    type: \"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\",\n  });\n\n  const formData = new FormData();\n  formData.append(\"name\", name);\n  formData.append(\"application\", \"DMI\");\n  formData.append(\"file_type\", \"Data\");\n  formData.append(\"type\", \"Unnormalized\");\n  formData.append(\"status\", \"Uploaded\");\n  formData.append(\"approved\", \"false\");\n  formData.append(\"ordinary_data\", fileBlob, safeFileName);\n\n  try {\n    const response = await fetch(\n      \"https://msdat-api.fmohconnect.gov.ng/api/dmi/fileuploads/\",\n      { method: \"POST\", body: formData }\n    );\n\n    const contentType = response.headers.get(\"content-type\") || \"\";\n\n    if (contentType.includes(\"text/html\")) {\n      const html = await response.text();\n      const match = html.match(/<pre class=\"exception_value\">([\\s\\S]*?)<\\/pre>/);\n      const exceptionText = match\n        ? match[1]\n            .replace(/&#x27;/g, \"'\")\n            .replace(/&quot;/g, '\"')\n            .replace(/&lt;/g, '<')\n            .replace(/&gt;/g, '>')\n        : html;\n      throw new Error(`Server exception: ${exceptionText.trim()}`);\n    }\n\n    if (!response.ok) {\n      const errText = await response.text();\n      throw new Error(\n        `Upload failed with status ${response.status}: ${errText}`\n      );\n    }\n\n    const result = await response.json();\n    console.log(\"Upload successful:\", result);\n    return result;\n  } catch (err) {\n    console.error(\"Upload error:\", err);\n    throw err;\n  }\n};",
+                                                  "packageJson": "{}"
+                                                },
+                                                "errorHandlingOptions": {
+                                                  "retryOnFailure": {
+                                                    "value": false
+                                                  },
+                                                  "continueOnFailure": {
+                                                    "value": false
+                                                  }
+                                                }
+                                              },
+                                              "nextAction": {
+                                                "name": "step_26",
+                                                "skip": false,
+                                                "type": "PIECE",
+                                                "valid": true,
+                                                "settings": {
+                                                  "input": {
+                                                    "url": "https://msdat-api.fmohconnect.gov.ng/api/dmi/fileuploads/",
+                                                    "body": {},
+                                                    "method": "GET",
+                                                    "headers": {},
+                                                    "authType": "NONE",
+                                                    "stopFlow": false,
+                                                    "body_type": "none",
+                                                    "use_proxy": false,
+                                                    "authFields": {},
+                                                    "failureMode": "continue_none",
+                                                    "queryParams": {},
+                                                    "proxy_settings": {},
+                                                    "response_is_binary": false
+                                                  },
+                                                  "pieceName": "@activepieces/piece-http",
+                                                  "actionName": "send_request",
+                                                  "inputUiInfo": {
+                                                    "schema": {
+                                                      "body": {},
+                                                      "authFields": {},
+                                                      "proxy_settings": {}
+                                                    },
+                                                    "customizedInputs": {}
+                                                  },
+                                                  "pieceVersion": "0.9.2",
+                                                  "errorHandlingOptions": {
+                                                    "retryOnFailure": {
+                                                      "value": false
+                                                    },
+                                                    "continueOnFailure": {
+                                                      "value": false
+                                                    }
+                                                  }
+                                                },
+                                                "nextAction": {
+                                                  "name": "step_27",
+                                                  "skip": false,
+                                                  "type": "PIECE",
+                                                  "valid": true,
+                                                  "settings": {
+                                                    "input": {
+                                                      "url": "https://msdat-api.fmohconnect.gov.ng/api/dmi/fileuploads/{{step_26['body']['results'][0]['id']}}/push/",
+                                                      "body": {},
+                                                      "method": "GET",
+                                                      "headers": {},
+                                                      "authType": "NONE",
+                                                      "stopFlow": false,
+                                                      "body_type": "none",
+                                                      "use_proxy": false,
+                                                      "authFields": {},
+                                                      "failureMode": "continue_none",
+                                                      "queryParams": {},
+                                                      "proxy_settings": {},
+                                                      "response_is_binary": false
+                                                    },
+                                                    "pieceName": "@activepieces/piece-http",
+                                                    "actionName": "send_request",
+                                                    "inputUiInfo": {
+                                                      "schema": {
+                                                        "body": {},
+                                                        "authFields": {},
+                                                        "proxy_settings": {}
+                                                      },
+                                                      "customizedInputs": {}
+                                                    },
+                                                    "pieceVersion": "0.9.2",
+                                                    "errorHandlingOptions": {
+                                                      "retryOnFailure": {
+                                                        "value": false
+                                                      },
+                                                      "continueOnFailure": {
+                                                        "value": false
+                                                      }
+                                                    }
+                                                  },
+                                                  "nextAction": {
+                                                    "name": "step_24",
+                                                    "skip": false,
+                                                    "type": "ROUTER",
+                                                    "valid": true,
+                                                    "children": [
+                                                      {
+                                                        "name": "step_25",
+                                                        "skip": false,
+                                                        "type": "PIECE",
+                                                        "valid": true,
+                                                        "settings": {
+                                                          "input": {
+                                                            "auth": "{{connections['jhHFXwrgEyuw8WFga40hO']}}",
+                                                            "row_id": "2",
+                                                            "values": {
+                                                              "A": "2",
+                                                              "B": "{{step_17['item']['values']['E']}}"
+                                                            },
+                                                            "sheetId": 0,
+                                                            "spreadsheetId": "1IYoPuveZ164yPmRKjVGn7NmsXUVS0e0E_vLABqN4OYk",
+                                                            "first_row_headers": true,
+                                                            "includeTeamDrives": true
+                                                          },
+                                                          "pieceName": "@activepieces/piece-google-sheets",
+                                                          "actionName": "update_row",
+                                                          "inputUiInfo": {
+                                                            "schema": {
+                                                              "values": {
+                                                                "A": {
+                                                                  "type": "SHORT_TEXT",
+                                                                  "required": false,
+                                                                  "description": "index_number",
+                                                                  "displayName": "index_number",
+                                                                  "defaultValue": ""
+                                                                },
+                                                                "B": {
+                                                                  "type": "SHORT_TEXT",
+                                                                  "required": false,
+                                                                  "description": "api_link",
+                                                                  "displayName": "api_link",
+                                                                  "defaultValue": ""
+                                                                }
+                                                              }
+                                                            },
+                                                            "customizedInputs": {}
+                                                          },
+                                                          "pieceVersion": "0.12.12",
+                                                          "errorHandlingOptions": {
+                                                            "retryOnFailure": {
+                                                              "value": false
+                                                            },
+                                                            "continueOnFailure": {
+                                                              "value": false
+                                                            }
+                                                          }
+                                                        },
+                                                        "displayName": "Update Row"
+                                                      },
+                                                      {
+                                                        "name": "step_23",
+                                                        "skip": false,
+                                                        "type": "PIECE",
+                                                        "valid": true,
+                                                        "settings": {
+                                                          "input": {
+                                                            "values": [
+                                                              "{{step_15[0]['values']['A']}}",
+                                                              "1"
+                                                            ]
+                                                          },
+                                                          "pieceName": "@activepieces/piece-data-summarizer",
+                                                          "actionName": "calculateSum",
+                                                          "inputUiInfo": {
+                                                            "customizedInputs": {}
+                                                          },
+                                                          "pieceVersion": "0.0.7",
+                                                          "errorHandlingOptions": {
+                                                            "retryOnFailure": {
+                                                              "value": false
+                                                            },
+                                                            "continueOnFailure": {
+                                                              "value": false
+                                                            }
+                                                          }
+                                                        },
+                                                        "nextAction": {
+                                                          "name": "step_22",
+                                                          "skip": false,
+                                                          "type": "PIECE",
+                                                          "valid": true,
+                                                          "settings": {
+                                                            "input": {
+                                                              "auth": "{{connections['jhHFXwrgEyuw8WFga40hO']}}",
+                                                              "row_id": "2",
+                                                              "values": {
+                                                                "A": "{{step_23['sum']}}",
+                                                                "B": "{{step_17['item']['values']['E']}}"
+                                                              },
+                                                              "sheetId": 0,
+                                                              "spreadsheetId": "1IYoPuveZ164yPmRKjVGn7NmsXUVS0e0E_vLABqN4OYk",
+                                                              "first_row_headers": true,
+                                                              "includeTeamDrives": true
+                                                            },
+                                                            "pieceName": "@activepieces/piece-google-sheets",
+                                                            "actionName": "update_row",
+                                                            "inputUiInfo": {
+                                                              "schema": {
+                                                                "values": {
+                                                                  "A": {
+                                                                    "type": "SHORT_TEXT",
+                                                                    "required": false,
+                                                                    "description": "index_number",
+                                                                    "displayName": "index_number",
+                                                                    "defaultValue": ""
+                                                                  },
+                                                                  "B": {
+                                                                    "type": "SHORT_TEXT",
+                                                                    "required": false,
+                                                                    "description": "api_link",
+                                                                    "displayName": "api_link",
+                                                                    "defaultValue": ""
+                                                                  }
+                                                                }
+                                                              },
+                                                              "customizedInputs": {}
+                                                            },
+                                                            "pieceVersion": "0.12.12",
+                                                            "errorHandlingOptions": {
+                                                              "retryOnFailure": {
+                                                                "value": false
+                                                              },
+                                                              "continueOnFailure": {
+                                                                "value": false
+                                                              }
+                                                            }
+                                                          },
+                                                          "displayName": "Update Row"
+                                                        },
+                                                        "displayName": "Derive next index"
+                                                      }
+                                                    ],
+                                                    "settings": {
+                                                      "branches": [
+                                                        {
+                                                          "branchName": "Branch 1",
+                                                          "branchType": "CONDITION",
+                                                          "conditions": [
+                                                            [
+                                                              {
+                                                                "operator": "NUMBER_IS_EQUAL_TO",
+                                                                "firstValue": "{{step_15[0]['values']['A']}}",
+                                                                "secondValue": "97"
+                                                              }
+                                                            ]
+                                                          ]
+                                                        },
+                                                        {
+                                                          "branchName": "Otherwise",
+                                                          "branchType": "FALLBACK"
+                                                        }
+                                                      ],
+                                                      "inputUiInfo": {
+                                                        "customizedInputs": {}
+                                                      },
+                                                      "executionType": "EXECUTE_FIRST_MATCH"
+                                                    },
+                                                    "nextAction": {
+                                                      "name": "step_5",
+                                                      "skip": false,
+                                                      "type": "PIECE",
+                                                      "valid": true,
+                                                      "settings": {
+                                                        "input": {
+                                                          "auth": "{{connections['slack']}}",
+                                                          "text": "Hello! @channel\n\nThe NHMIS-DHIS2 extraction for {{step_17['item']['values']['A']}} covering the period of {{step_17['item']['values']['B']}} ran successfully!\n\nPush Message: File normalized and all it's data has been pushed successfully!\n\n",
+                                                          "channel": "C07GF4PNMMM",
+                                                          "username": "NHMIS-DHIS2 bot"
+                                                        },
+                                                        "pieceName": "@activepieces/piece-slack",
+                                                        "actionName": "send_channel_message",
+                                                        "inputUiInfo": {
+                                                          "customizedInputs": {}
+                                                        },
+                                                        "pieceVersion": "0.7.15",
+                                                        "errorHandlingOptions": {
+                                                          "retryOnFailure": {
+                                                            "value": true
+                                                          },
+                                                          "continueOnFailure": {
+                                                            "value": false
+                                                          }
+                                                        }
+                                                      },
+                                                      "nextAction": {
+                                                        "name": "step_13",
+                                                        "skip": false,
+                                                        "type": "PIECE",
+                                                        "valid": true,
+                                                        "settings": {
+                                                          "input": {
+                                                            "auth": "{{connections['slack']}}",
+                                                            "text": "Hello! @channel\n\nThe NHMIS-DHIS2 extraction for {{step_17['item']['values']['A']}} covering the period of {{step_17['item']['values']['B']}} ran successfully!\n\nPush Message: File normalized and all it's data has been pushed successfully!",
+                                                            "channel": "C07NNUA4VA5",
+                                                            "username": "NHMIS-DHIS2 bot"
+                                                          },
+                                                          "pieceName": "@activepieces/piece-slack",
+                                                          "actionName": "send_channel_message",
+                                                          "inputUiInfo": {
+                                                            "customizedInputs": {}
+                                                          },
+                                                          "pieceVersion": "0.7.15",
+                                                          "errorHandlingOptions": {
+                                                            "retryOnFailure": {
+                                                              "value": false
+                                                            },
+                                                            "continueOnFailure": {
+                                                              "value": false
+                                                            }
+                                                          }
+                                                        },
+                                                        "displayName": "Send notification to automation-logs channel"
+                                                      },
+                                                      "displayName": "Send notification to nhmis-monthly channel"
+                                                    },
+                                                    "displayName": "Router"
+                                                  },
+                                                  "displayName": "Push id"
+                                                },
+                                                "displayName": "Get Push id"
+                                              },
+                                              "displayName": "POST to DMI"
+                                            },
+                                            "displayName": "Convert csv to xlsx"
+                                          },
+                                          "displayName": "Data Restructuring"
+                                        },
+                                        "displayName": "Convert json to csv"
+                                      },
+                                      "displayName": "Clean json data"
+                                    },
+                                    {
+                                      "name": "step_28",
+                                      "skip": false,
+                                      "type": "ROUTER",
+                                      "valid": true,
+                                      "children": [
+                                        {
+                                          "name": "step_29",
+                                          "skip": false,
+                                          "type": "PIECE",
+                                          "valid": true,
+                                          "settings": {
+                                            "input": {
+                                              "auth": "{{connections['jhHFXwrgEyuw8WFga40hO']}}",
+                                              "row_id": "2",
+                                              "values": {
+                                                "A": "2",
+                                                "B": "{{step_17['item']['values']['E']}}"
+                                              },
+                                              "sheetId": 0,
+                                              "spreadsheetId": "1IYoPuveZ164yPmRKjVGn7NmsXUVS0e0E_vLABqN4OYk",
+                                              "first_row_headers": true,
+                                              "includeTeamDrives": true
+                                            },
+                                            "pieceName": "@activepieces/piece-google-sheets",
+                                            "actionName": "update_row",
+                                            "inputUiInfo": {
+                                              "schema": {
+                                                "values": {
+                                                  "A": {
+                                                    "type": "SHORT_TEXT",
+                                                    "required": false,
+                                                    "description": "index_number",
+                                                    "displayName": "index_number",
+                                                    "defaultValue": ""
+                                                  },
+                                                  "B": {
+                                                    "type": "SHORT_TEXT",
+                                                    "required": false,
+                                                    "description": "api_link",
+                                                    "displayName": "api_link",
+                                                    "defaultValue": ""
+                                                  }
+                                                }
+                                              },
+                                              "customizedInputs": {}
+                                            },
+                                            "pieceVersion": "0.12.12",
+                                            "errorHandlingOptions": {
+                                              "retryOnFailure": {
+                                                "value": false
+                                              },
+                                              "continueOnFailure": {
+                                                "value": false
+                                              }
+                                            }
+                                          },
+                                          "displayName": "Update Row"
+                                        },
+                                        {
+                                          "name": "step_30",
+                                          "skip": false,
+                                          "type": "PIECE",
+                                          "valid": true,
+                                          "settings": {
+                                            "input": {
+                                              "values": [
+                                                "{{step_15[0]['values']['A']}}",
+                                                "1"
+                                              ]
+                                            },
+                                            "pieceName": "@activepieces/piece-data-summarizer",
+                                            "actionName": "calculateSum",
+                                            "inputUiInfo": {
+                                              "customizedInputs": {}
+                                            },
+                                            "pieceVersion": "0.0.7",
+                                            "errorHandlingOptions": {
+                                              "retryOnFailure": {
+                                                "value": false
+                                              },
+                                              "continueOnFailure": {
+                                                "value": false
+                                              }
+                                            }
+                                          },
+                                          "nextAction": {
+                                            "name": "step_31",
+                                            "skip": false,
+                                            "type": "PIECE",
+                                            "valid": true,
+                                            "settings": {
+                                              "input": {
+                                                "auth": "{{connections['jhHFXwrgEyuw8WFga40hO']}}",
+                                                "row_id": "2",
+                                                "values": {
+                                                  "A": "{{step_30['sum']}}",
+                                                  "B": "{{step_17['item']['values']['E']}}"
+                                                },
+                                                "sheetId": 0,
+                                                "spreadsheetId": "1IYoPuveZ164yPmRKjVGn7NmsXUVS0e0E_vLABqN4OYk",
+                                                "first_row_headers": true,
+                                                "includeTeamDrives": true
+                                              },
+                                              "pieceName": "@activepieces/piece-google-sheets",
+                                              "actionName": "update_row",
+                                              "inputUiInfo": {
+                                                "schema": {
+                                                  "values": {
+                                                    "A": {
+                                                      "type": "SHORT_TEXT",
+                                                      "required": false,
+                                                      "description": "index_number",
+                                                      "displayName": "index_number",
+                                                      "defaultValue": ""
+                                                    },
+                                                    "B": {
+                                                      "type": "SHORT_TEXT",
+                                                      "required": false,
+                                                      "description": "api_link",
+                                                      "displayName": "api_link",
+                                                      "defaultValue": ""
+                                                    }
+                                                  }
+                                                },
+                                                "customizedInputs": {}
+                                              },
+                                              "pieceVersion": "0.12.12",
+                                              "errorHandlingOptions": {
+                                                "retryOnFailure": {
+                                                  "value": false
+                                                },
+                                                "continueOnFailure": {
+                                                  "value": false
+                                                }
+                                              }
+                                            },
+                                            "displayName": "Update Row"
+                                          },
+                                          "displayName": "Derive next index"
+                                        }
+                                      ],
+                                      "settings": {
+                                        "branches": [
+                                          {
+                                            "branchName": "Branch 1",
+                                            "branchType": "CONDITION",
+                                            "conditions": [
+                                              [
+                                                {
+                                                  "operator": "NUMBER_IS_EQUAL_TO",
+                                                  "firstValue": "{{step_15[0]['values']['A']}}",
+                                                  "secondValue": "97"
+                                                }
+                                              ]
+                                            ]
+                                          },
+                                          {
+                                            "branchName": "Otherwise",
+                                            "branchType": "FALLBACK"
+                                          }
+                                        ],
+                                        "inputUiInfo": {
+                                          "customizedInputs": {}
+                                        },
+                                        "executionType": "EXECUTE_FIRST_MATCH"
+                                      },
+                                      "nextAction": {
+                                        "name": "step_20",
+                                        "skip": false,
+                                        "type": "PIECE",
+                                        "valid": true,
+                                        "settings": {
+                                          "input": {
+                                            "auth": "{{connections['slack']}}",
+                                            "text": "Hello! @channel\n\nThe NHMIS-DHIS2 extraction for {{step_17['item']['values']['A']}} covering the period of {{step_17['item']['values']['B']}} has failed.\n\nStatus code: 500 (Internal Server Error)",
+                                            "channel": "C07GF4PNMMM",
+                                            "username": "NHMIS-DHIS2 bot"
+                                          },
+                                          "pieceName": "@activepieces/piece-slack",
+                                          "actionName": "send_channel_message",
+                                          "inputUiInfo": {
+                                            "customizedInputs": {}
+                                          },
+                                          "pieceVersion": "0.7.15",
+                                          "errorHandlingOptions": {
+                                            "retryOnFailure": {
+                                              "value": true
+                                            },
+                                            "continueOnFailure": {
+                                              "value": false
+                                            }
+                                          }
+                                        },
+                                        "nextAction": {
+                                          "name": "step_21",
+                                          "skip": false,
+                                          "type": "PIECE",
+                                          "valid": true,
+                                          "settings": {
+                                            "input": {
+                                              "auth": "{{connections['slack']}}",
+                                              "text": "Hello! @channel\n\nThe NHMIS-DHIS2 extraction for {{step_17['item']['values']['A']}} covering the period of {{step_17['item']['values']['B']}} has failed.\n\nStatus code: 500 (Internal Server Error)",
+                                              "channel": "C07NNUA4VA5",
+                                              "username": "NHMIS-DHIS2 bot"
+                                            },
+                                            "pieceName": "@activepieces/piece-slack",
+                                            "actionName": "send_channel_message",
+                                            "inputUiInfo": {
+                                              "customizedInputs": {}
+                                            },
+                                            "pieceVersion": "0.7.15",
+                                            "errorHandlingOptions": {
+                                              "retryOnFailure": {
+                                                "value": false
+                                              },
+                                              "continueOnFailure": {
+                                                "value": false
+                                              }
+                                            }
+                                          },
+                                          "displayName": "Send notification to automation-logs channel"
+                                        },
+                                        "displayName": "Send notification to nhmis-monthly channel"
+                                      },
+                                      "displayName": "Router"
+                                    }
+                                  ],
+                                  "settings": {
+                                    "branches": [
+                                      {
+                                        "branchName": "On Success",
+                                        "branchType": "CONDITION",
+                                        "conditions": [
+                                          [
+                                            {
+                                              "operator": "EXISTS",
+                                              "firstValue": "{{step_1['status']}}"
+                                            }
+                                          ]
+                                        ]
+                                      },
+                                      {
+                                        "branchName": "Otherwise",
+                                        "branchType": "FALLBACK"
+                                      }
+                                    ],
+                                    "inputUiInfo": {},
+                                    "executionType": "EXECUTE_FIRST_MATCH"
+                                  },
+                                  "displayName": "If HTTP request Status = 200"
+                                },
+                                "displayName": "Send HTTP request"
+                              },
+                              null
+                            ],
+                            "settings": {
+                              "branches": [
+                                {
+                                  "branchName": "Branch 1",
+                                  "branchType": "CONDITION",
+                                  "conditions": [
+                                    [
+                                      {
+                                        "operator": "NUMBER_IS_EQUAL_TO",
+                                        "firstValue": "{{step_17['index']}}",
+                                        "secondValue": "{{step_15[0]['values']['A']}}"
+                                      }
+                                    ]
+                                  ]
+                                },
+                                {
+                                  "branchName": "Otherwise",
+                                  "branchType": "FALLBACK"
+                                }
+                              ],
+                              "inputUiInfo": {
+                                "customizedInputs": {}
+                              },
+                              "executionType": "EXECUTE_FIRST_MATCH"
+                            },
+                            "displayName": "Router"
+                          }
+                        },
+                        "displayName": "Get API Index"
+                      },
+                      "displayName": "Generate Random Number"
+                    },
+                    "displayName": "Remove bad links"
+                  },
+                  "displayName": "Edit API links"
+                },
+                "displayName": "Convert vlookup to csv"
+              },
+              "displayName": "Get vlookup file"
+            },
+            "displayName": "Generate Random Number"
+          },
+          "displayName": "NHMIS Indicators API"
+        },
+        "displayName": "Generate Random Number"
+      }
+    },
+    "valid": true,
+    "agentIds": [],
+    "connectionIds": [
+      "jhHFXwrgEyuw8WFga40hO",
+      "slack"
+    ],
+    "schemaVersion": "5"
+  },
+  "blogUrl": ""
+}

@@ -1,0 +1,199 @@
+{
+  "name": "Task Knowledge base",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "initialMessages": "👋 Hi there! I’m Ada, your eHealth4everyone Task Assistant.\nI can help you retrieve information about ClickUp tasks, track progress, or recommend new task ideas for your team.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -464,
+        432
+      ],
+      "id": "5542f6be-84f8-42d6-aeb3-a7f31962db92",
+      "name": "When chat message received",
+      "webhookId": "4b696104-ae38-408d-8e1a-4325bbe63b68"
+    },
+    {
+      "parameters": {
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "You are a Project Management data assistant connected to a PostgreSQL database for ClickUp tasks via an MCP client tool.\n\nYour role is to interpret natural-language requests about ClickUp tasks and translate them into accurate, readable SQL SELECT queries. You may also analyze historical tasks and propose new follow-up tasks when explicitly requested, without modifying the database.\n\nDATABASE CONTEXT\nTable name: clickup_task\n\nEach row represents a ClickUp task.\n\nAll columns are TEXT:\n- task_id: unique ClickUp task ID (primary key)\n- name: task title or summary\n- description: task details or notes\n- status: current task status (for example: in progress, completed)\n- priority: task priority level\n- creator: name of the user who created the task\n- assignees: comma-separated names of assigned users\n- tags: comma-separated task labels\n- start_date: task start date in YYYY-MM-DD format\n- due_date: task due date in YYYY-MM-DD format\n- list_name: ClickUp list containing the task\n- folder_name: folder containing the list\n- project_name: overarching project or workspace\n- url: direct link to the ClickUp task\n\nQUERY GENERATION RULES\n- Only generate SQL SELECT statements. Never modify data.\n- Select only the columns relevant to the user’s request.\n- Always limit results to 50 rows unless the user explicitly requests more.\n- Use ILIKE for case-insensitive or partial matching.\n- Use similarity operators or pg_trgm similarity when the request is fuzzy or descriptive.\n- When matching people, search within the assignees column using partial, case-insensitive matches.\n- Prefer readable, maintainable SQL.\n\nDATE INTERPRETATION\n- Interpret date references flexibly and contextually.\n- Month names (for example “September”) should match any year unless a year is specified.\n- Phrases like “this month” or “next month” should resolve dynamically using the current date.\n- Match against both due_date and start_date where reasonable.\n- If exact date filtering is unclear, return approximate or related results and explain the assumption.\n\nSEMANTIC AND VAGUE REQUESTS\n- Treat descriptive phrases (for example “dashboard data quality automation”) as semantic matches against task names and descriptions.\n- If no exact match exists, retrieve the closest related tasks.\n- Clearly state when results are approximate or inferred.\n\nTASK DEVELOPMENT AND FOLLOW-UP PLANNING (READ-ONLY)\nIn addition to querying tasks, you may propose new tasks when the user explicitly asks to create, suggest, plan, or develop tasks.\n\nRules for task development:\n- Do not insert, update, delete, or otherwise persist tasks.\n- Always base recommendations on existing historical tasks.\n- First retrieve relevant prior tasks using date fields, status, tags, project_name, and assignees.\n- Analyze patterns such as recurring work, completed milestones, overdue tasks, or unfinished follow-ups.\n- Propose logical next-step or follow-up tasks aligned with the team or assignees requested by the user.\n\nWhen proposing tasks:\n- Clearly state that the tasks are recommendations only.\n- Do not generate SQL that modifies data.\n- Structure recommendations clearly and consistently.\n\nRecommended output structure for proposed tasks:\n- Task name\n- Purpose or rationale (linked to prior tasks)\n- Suggested assignee(s)\n- Suggested due date (relative dates are acceptable)\n- Related existing task names or IDs\n\nIf there is insufficient historical data:\n- Explain the limitation clearly.\n- Suggest reasonable defaults or assumptions rather than fabricating details.\n\nEXAMPLE QUERY TEMPLATE\n\nSELECT\n  task_id,\n  name,\n  description,\n  status,\n  priority,\n  creator,\n  assignees,\n  tags,\n  start_date,\n  due_date,\n  list_name,\n  folder_name,\n  project_name,\n  url\nFROM clickup_task\nLIMIT 10;\n\nGENERAL BEHAVIOR\n- Be concise, accurate, and transparent about assumptions.\n- Prefer helpful approximations over empty results when uncertainty exists.\n- Clearly explain reasoning whenever results are inferred or approximate."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -64,
+        432
+      ],
+      "id": "5cdde5f2-f113-425f-ba54-1bc718ec08e6",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5",
+          "mode": "list",
+          "cachedResultName": "gpt-5"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -240,
+        656
+      ],
+      "id": "97b49c0f-badb-4314-9a50-4b753b4e5673",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "brD9ZGNYfNwm4Ay9",
+          "name": "e4eAI OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        16,
+        656
+      ],
+      "id": "c48d121d-2620-41c7-a466-1e8771c3922f",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://activepieces.e4eweb.space/api/v1/mcp/W8aiXxoNJy85oKXbxZfSk/sse",
+        "serverTransport": "httpStreamable"
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.1,
+      "position": [
+        144,
+        656
+      ],
+      "id": "b8d0ca0d-dffc-41a6-bc14-0a10f04a39c2",
+      "name": "MCP Client",
+      "notesInFlow": true,
+      "notes": "Clickup Postgresl"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "position": [
+        272,
+        656
+      ],
+      "id": "02286dd9-2237-4821-bee0-51b5f9803066",
+      "name": "Calculator"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        656
+      ],
+      "id": "1d94717a-5ca4-4253-bbab-d0437e5a09ec",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "XwM8enBL6GGiaFjn",
+          "name": "OpenRouter account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Client": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculator": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "3ff23cd9-ffb7-4064-a787-e92551fa5b90",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d36d44bc86c7c7c438594c4a6452789f9316c71e66b860c3403ad4c2355c8405"
+  },
+  "id": "Ia9woSQ2Hhe82TpV",
+  "tags": []
+}

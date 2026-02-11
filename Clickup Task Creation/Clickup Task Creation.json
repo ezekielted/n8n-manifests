@@ -1,0 +1,1023 @@
+{
+  "name": "Clickup Task Creation",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://api.clickup.com/api/v2/team/756304/space?archived=false",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "clickUpOAuth2Api",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        -208
+      ],
+      "id": "55f40686-66e4-4b5c-8d4f-86cc0e2530fb",
+      "name": "HTTP Request",
+      "credentials": {
+        "clickUpOAuth2Api": {
+          "id": "zY8KJlwUIqAzP6Pn",
+          "name": "ClickUp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "spaces",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        208,
+        -208
+      ],
+      "id": "434d2d60-f868-49d4-b9e2-2ca8ad35ad9b",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.clickup.com/api/v2/team/756304",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "clickUpOAuth2Api",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        112
+      ],
+      "id": "5f3a6b09-7443-4ed6-b941-ece4617d612d",
+      "name": "HTTP Request2",
+      "credentials": {
+        "clickUpOAuth2Api": {
+          "id": "zY8KJlwUIqAzP6Pn",
+          "name": "ClickUp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "team.members",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        208,
+        112
+      ],
+      "id": "b4b9742e-1935-41ab-8a95-af284afd58a3",
+      "name": "Split Out1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b2318c32-4b1a-4d32-902d-6fb2cadb2cbf",
+              "name": "user.id",
+              "value": "={{ $json.user.id }}",
+              "type": "number"
+            },
+            {
+              "id": "915819aa-61d5-4afa-8343-145b7448fccc",
+              "name": "user.username",
+              "value": "={{ $json.user.username }}",
+              "type": "string"
+            },
+            {
+              "id": "351504e9-01f5-4448-acbf-afbc27893479",
+              "name": "user.email",
+              "value": "={{ $json.user.email }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        400,
+        112
+      ],
+      "id": "1ed44b65-cd09-4ca2-a843-49b33aa429dc",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "content": "## Get spaces/folders/lists\n**Double click** to edit me. [Guide](https://docs.n8n.io/workflows/sticky-notes/)",
+        "height": 272,
+        "width": 1056
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -304
+      ],
+      "id": "74a58be9-e269-4970-a38b-8f6b6491cfea",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Get team members\n**Double click** to edit me. [Guide](https://docs.n8n.io/workflows/sticky-notes/)",
+        "height": 272,
+        "width": 912,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        16
+      ],
+      "id": "583d79cf-72c2-4026-9846-a43fd539a328",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1q1cvGTY21mFwFGQ50UJGz-qRBWyGSQxvkZKIyN1brdY",
+          "mode": "list",
+          "cachedResultName": "Productivity Tracker 2026",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1q1cvGTY21mFwFGQ50UJGz-qRBWyGSQxvkZKIyN1brdY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1586814377,
+          "mode": "list",
+          "cachedResultName": "Output Tracking sheet",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1q1cvGTY21mFwFGQ50UJGz-qRBWyGSQxvkZKIyN1brdY/edit#gid=1586814377"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        0,
+        480
+      ],
+      "id": "c9139a44-fdee-43fd-a911-e0cc0f07f3c3",
+      "name": "Get Productivity Tracker",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "6xLIlihki3GMsJpR",
+          "name": "AI Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get all items from the previous node\nconst rawItems = $items(\"Get Productivity Tracker\"); // array of items\nconst rawData = rawItems.map(item => item.json); // extract json from each item\n\n// List of months to look for (handles trailing spaces)\nconst months = [\n  \"January\", \"February\", \"March\", \"April\", \"May\", \"June\",\n  \"July\", \"August\", \"September\", \"October\", \"November\", \"December\"\n];\n\n// Identify header row (row containing \"Team Members\")\nconst headerRow = rawData.find(row =>\n  Object.values(row).some(val => typeof val === \"string\" && val.toLowerCase().includes(\"team members\"))\n);\n\nif (!headerRow) throw new Error(\"Header row with 'Team Members' not found\");\n\n// Find column key for Team Member\nconst teamMemberCol = Object.keys(headerRow).find(key =>\n  typeof headerRow[key] === \"string\" && headerRow[key].toLowerCase().includes(\"team members\")\n);\n\n// Find column key for Team\nconst teamCol = Object.keys(headerRow).find(key =>\n  typeof headerRow[key] === \"string\" && headerRow[key].toLowerCase().includes(\"teams\")\n);\n\nif (!teamCol) throw new Error(\"Column with 'Teams' not found in the header row\");\n\n\nconst cleaned = [];\nlet currentTeamMember = \"\";\nlet currentTeam = \"\";\n\n// Process each data row (skip header rows)\nfor (const row of rawData) {\n  // Skip header rows\n  if (Object.values(row).some(val => typeof val === 'string' && val.toLowerCase().includes(\"team members\"))) {\n      continue;\n  }\n  \n  const teamMemberValue = row[teamMemberCol];\n\n  // Update the current team member and team if the cell is not empty\n  // Assumes that the team is on the same row as the team member\n  if (teamMemberValue && typeof teamMemberValue === 'string' && teamMemberValue.trim() !== \"\") {\n    currentTeamMember = teamMemberValue.trim();\n    const teamValue = row[teamCol];\n    if (teamValue && typeof teamValue === 'string' && teamValue.trim() !== \"\") {\n       currentTeam = teamValue.trim();\n    }\n  }\n\n  // Skip rows where no team member has been identified yet\n  if (!currentTeamMember) continue;\n\n  for (const month of months) {\n    // Handle messy headers by trimming and ignoring empty values\n    const monthKey = Object.keys(row).find(k => k.trim().toLowerCase() === month.toLowerCase());\n    if (!monthKey) continue;\n\n    const deliverable = row[monthKey];\n\n    // Ensure deliverable is a non-empty string\n    if (deliverable && typeof deliverable === 'string' && deliverable.toString().trim() !== \"\") {\n      cleaned.push({\n        \"Team Member\": currentTeamMember,\n        \"Team\": currentTeam,\n        \"Deliverable\": deliverable.toString().trim(),\n        \"Month\": month\n      });\n    }\n  }\n}\n\nreturn cleaned;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        480
+      ],
+      "id": "6dd43396-4c28-4464-8092-f52b6b521855",
+      "name": "Clean GoogleSheet"
+    },
+    {
+      "parameters": {
+        "content": "## Get Productivity Tracker \n**Double click** to edit me. [Guide](https://docs.n8n.io/workflows/sticky-notes/)",
+        "height": 416,
+        "width": 912,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        336
+      ],
+      "id": "2f1f2f0f-a2d7-4c34-a909-1914009065db",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        1184,
+        384
+      ],
+      "id": "eb3de002-7585-473a-90ff-a3f1322fdad5",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an AI Project Manager responsible for creating tasks in the ClickUp workspace based on deliverables retrieved from the Productivity Tracker Sheet. Follow these instructions precisely:\nInput Data:\n1. Productivity Tracker Sheet Input:\n- Reference dynamically as {{ JSON.stringify($node[\"Loop Over Items\"].json) }}.\n- Each object contains:\n  {\n    \"Team Member\": \"<team member name>\",\n    \"Deliverable\": \"<deliverable description>\",\n    \"Month\": \"<month>\"\n  }\n- Use the \"Deliverable\" field as the task name.\n- Use the \"Team\" field to classify task into related lists. For example a task name like \"Automation of PDF Data extaction\" should be added to the AI & Automations list.\n\n2. ClickUp Spaces/Folders/Lists:\n- Reference dynamically as {{ JSON.stringify($node[\"Merge1\"].json) }}.\n- Each object contains:\n  {\n  \"folders\": [\n    {\n      \"id\": \"<folder id>\",\n      \"name\": \"<folder name>\",\n      \"space\": {\n        \"id\": \"<space id>\",\n        \"name\": \"<space name>\"\n      },\n      \"lists\": [\n        {\n          \"id\": \"<list id>\",\n          \"name\": \"<list name>\"\n        }\n      ]\n    }\n  ]\n}\n  \n- Classify the task into the appropriate list based on the deliverable type/content.\n\n3. Assignees:\n- Reference dynamically as {{ JSON.stringify($node[\"Filter assignee\"].json) }}.\n- Each object contains:\n  {\n    \"user\": {\n      \"id\": \"<assignee id>\",\n      \"username\": \"<assignee username>\",\n      \"email\": \"<assignee email>\"\n    }\n  }\n- Use the assignee object directly in the task payload.\n\n4. Month and Year Input:\n- Reference dynamically as {{ $item(0).$node[\"Webhook\"].json.body.data[1].value }} {{ $item(0).$node[\"Webhook\"].json.body.data[2].value }}.\n- Determine tags in the format:\n  - \"qX YYYY\" and \"qX YYYY target\"\n  - Assign the correct quarter (q1 = Jan-Mar, q2 = Apr-Jun, q3 = Jul-Sep, q4 = Oct-Dec).\n\n5. Task Duration:\n- Use the n8n Code Tool below to calculate start and due dates as **milliseconds since epoch**.\n- Reference the Month Year input dynamically.\n- Pass the query \"{{ $item(0).$node[\"Webhook\"].json.body.data[1].value }} {{ $item(0).$node[\"Webhook\"].json.body.data[2].value }}\" to the code node\n\n\nTask Creation Payload Requirements:\nGenerate a JSON body suitable for ClickUp task creation with the following fields:\n{\n\"name\": \"<Deliverable from sheet>\",\n\"assignees\": [<assignee id>],\n\"tags\": [\"<quarter-year tag>\", \"<quarter-year target tag>\"],\n\"notify_all\": true,\n\"start_date\": <startDateMs from code tool>,\n\"start_date_time\": false,\n\"due_date\": <dueDateMs from code tool>,\n\"due_date_time\": false,\n\"space_id\": \"<ClickUp space id>\",\n\"folder_id\": \"<ClickUp folder id>\",\n\"list_id\": \"<ClickUp list id>\",\n\"status\": \"in progress\"\n}\n\nRules:\n- Dynamic classification: Examine the type of deliverable, and classify into an appropriate list. Use deliverable type/content to choose the correct space/folder/list.\n- Assignee: Use the necessary fields from the assignee object.\n- Tag calculation: Determine the correct quarter based on the Month and Year input.\n- Date calculation: Use the n8n Code Tool to compute start and due dates as milliseconds; ensure they are working days only (Monday–Friday).\n- Ensure all fields are valid, non-empty, and correctly formatted for the ClickUp API.\n\nExpected Output Example:\n{\n    \"name\": \"FASTR\\n- Create a competency-building journey for the FASTR platform training\",\n    \"assignees\": [\n        81682838\n    ],\n    \"tags\": [\n        \"q4 2025\",\n        \"q4 2025 target\"\n    ],\n    \"notify_all\": true,\n    \"start_date\": 1731542400000,\n    \"start_date_time\": false,\n    \"due_date\": 1731628800000,\n    \"due_date_time\": false,\n    \"space_id\": \"761147\",\n    \"folder_id\": \"901200061510\",\n    \"list_id\": \"90120041375\",\n    \"status\": \"in progress\"\n}",
+        "hasOutputParser": true,
+        "needsFallback": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1936,
+        384
+      ],
+      "id": "56ffdda7-1e30-4321-8ba1-374165454f99",
+      "name": "AI Agent",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4.1-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        1728,
+        624
+      ],
+      "id": "534e9ae0-7b27-4e76-a70e-00e8518cf3d6",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "brD9ZGNYfNwm4Ay9",
+          "name": "e4eAI OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch"
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1184,
+        128
+      ],
+      "id": "91b62730-002d-4837-b257-274b60c2913c",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the primary input data (the data coming directly into this node)\nconst primaryInput = $input.all();\n\n// Get the secondary input data using the reliable $items() function\nconst usersItems = $items(\"Merge\");\n\n// Extract the JSON data from each item to create a clean array of user objects\nconst usersData = usersItems.map(item => item.json);\n\n// Array to store the final matched user objects\nconst matchedUsers = [];\n\n// Loop through each item from the primary input\nfor (const item of primaryInput) {\n  const teamMemberName = item.json[\"Team Member\"];\n\n  // Skip this item if the team member name is not a valid string\n  if (typeof teamMemberName !== 'string' || teamMemberName.trim() === '') {\n    continue;\n  }\n\n  // Prepare the team member name for a clean, case-insensitive comparison\n  const cleanedTeamMemberName = teamMemberName.trim().toLowerCase();\n\n  // Find the matching user in the secondary data (from \"Edit Fields1\")\n  const foundUser = usersData.find(userData => {\n    // Check that the user object and username property exist and are strings\n    if (userData.user && typeof userData.user.username === 'string') {\n      const cleanedUsername = userData.user.username.trim().toLowerCase();\n      return cleanedUsername === cleanedTeamMemberName;\n    }\n    return false; // Return false if username is not valid, avoiding errors\n  });\n\n  // If a match was found, add the complete user object to our results\n  if (foundUser) {\n    matchedUsers.push(foundUser);\n  }\n}\n\n// Return the final array of all matched users\nreturn matchedUsers;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1488,
+        384
+      ],
+      "id": "d589688a-1b37-441a-bf60-f0bdab084e93",
+      "name": "Filter assignee",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        800,
+        -208
+      ],
+      "id": "66054968-1372-4438-b7be-143bd71066c0",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "dda8edcb-8962-466b-a30f-43cf67bce5c3",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -496,
+        112
+      ],
+      "id": "2ba14ce9-1cae-437a-8889-74874a54d86e",
+      "name": "Webhook",
+      "webhookId": "dda8edcb-8962-466b-a30f-43cf67bce5c3"
+    },
+    {
+      "parameters": {
+        "mode": "chooseBranch"
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1760,
+        128
+      ],
+      "id": "891035e2-e4d1-4457-ad11-fd847693b33e",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n    \"name\": \"FASTR\\n- Create a competency-building journey for the FASTR platform training\",\n    \"assignees\": [\n        81682838\n    ],\n    \"tags\": [\n        \"q4 2025\",\n        \"q4 2025 target\"\n    ],\n    \"notify_all\": true,\n    \"start_date\": 1731542400000,\n    \"start_date_time\": false,\n    \"due_date\": 1731628800000,\n    \"due_date_time\": false,\n    \"space_id\": \"761147\",\n    \"folder_id\": \"901200061510\",\n    \"list_id\": \"90120041375\",\n    \"status\": \"in progress\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        2368,
+        624
+      ],
+      "id": "3b0814fa-40bf-4220-be59-0e8a8349687b",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "options": {
+          "timezone": "Africa/Lagos"
+        }
+      },
+      "type": "n8n-nodes-base.dateTimeTool",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        624
+      ],
+      "id": "ab205bb9-5e48-49cd-9ca9-398de85cbcf4",
+      "name": "Date & Time"
+    },
+    {
+      "parameters": {
+        "content": "## Task creation flow \n**Double click** to edit me. [Guide](https://docs.n8n.io/workflows/sticky-notes/)",
+        "height": 800,
+        "width": 1446,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1088,
+        0
+      ],
+      "id": "66a7eedf-f6a4-4679-8022-5e34055f2e7e",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.clickup.com/api/v2/list/{{ $json.output.list_id }}/task",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "clickUpOAuth2Api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"name\": {{ JSON.stringify($node[\"AI Agent\"].json.output[\"name\"])}},\n    \"assignees\": [{{ $json.output.assignees }}],\n    \"tags\": [{{ $json.output.tags.map(tag => `\"${tag}\"`).join(\", \") }}],\n    \"notify_all\": true,\n    \"start_date\": {{ $json.output.start_date }},\n    \"start_date_time\": false,\n    \"due_date\": {{ $json.output.due_date }},\n    \"due_date_time\": false,\n    \"space_id\": \"{{ $json.output.space_id }}\",\n    \"folder_id\": \"{{ $json.output.folder_id }}\",\n    \"status\": \"{{ $json.output.status }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2352,
+        384
+      ],
+      "id": "a6b5d2e7-280c-4369-b4f0-a3fdb849759d",
+      "name": "POST Task to Clickup",
+      "credentials": {
+        "clickUpOAuth2Api": {
+          "id": "zY8KJlwUIqAzP6Pn",
+          "name": "ClickUp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "description": "Call this tool to get the start date and end date timestamps in milliseconds.",
+        "jsCode": "// Input from AI Agent: \"Month Year\" e.g., \"November 2025\"\nconst monthYearInput = query; // query comes from the AI agent\n\n// Parse month and year\nconst [monthName, yearStr] = monthYearInput.split(\" \");\nconst year = parseInt(yearStr, 10);\nconst month = new Date(`${monthName} 1, ${year}`).getMonth(); // 0-based month\n\n// Helper function to find first working day (Mon-Fri)\nfunction firstWorkingDay(year, month) {\n  let date = new Date(year, month, 1);\n  while (date.getDay() === 0 || date.getDay() === 6) { // Sunday=0, Saturday=6\n    date.setDate(date.getDate() + 1);\n  }\n  return date.getTime();\n}\n\n// Helper function to find last working day (Mon-Fri)\nfunction lastWorkingDay(year, month) {\n  let date = new Date(year, month + 1, 0); // last day of month\n  while (date.getDay() === 0 || date.getDay() === 6) {\n    date.setDate(date.getDate() - 1);\n  }\n  return date.getTime();\n}\n\n// Return output as string\nreturn JSON.stringify({\n  startDateMs: firstWorkingDay(year, month),\n  dueDateMs: lastWorkingDay(year, month)\n});"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.3,
+      "position": [
+        2240,
+        624
+      ],
+      "id": "26af89ec-950a-41cd-99fd-7f235611944f",
+      "name": "Code Tool"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.clickup.com/api/v2/space/{{ $json.spaces.id }}/folder",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "clickUpOAuth2Api",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        400,
+        -208
+      ],
+      "id": "eafaf3da-343f-4a97-b127-05d066cf59d0",
+      "name": "HTTP Request3",
+      "credentials": {
+        "clickUpOAuth2Api": {
+          "id": "zY8KJlwUIqAzP6Pn",
+          "name": "ClickUp account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ce710fee-a217-46a2-bc78-300ad64fa1de",
+              "name": "folders[0].id",
+              "value": "={{ $json.folders[0].id }}",
+              "type": "string"
+            },
+            {
+              "id": "8904b77b-1628-4ced-af55-993429d35d26",
+              "name": "folders[0].name",
+              "value": "={{ $json.folders[0].name }}",
+              "type": "string"
+            },
+            {
+              "id": "87d3ff26-5d87-43d6-8df6-0cfeb0f3fa25",
+              "name": "folders[0].space.id",
+              "value": "={{ $json.folders[0].space.id }}",
+              "type": "string"
+            },
+            {
+              "id": "7903c458-6232-4e20-8ab7-bb137ee76b58",
+              "name": "folders[0].space.name",
+              "value": "={{ $json.folders[0].space.name }}",
+              "type": "string"
+            },
+            {
+              "id": "03fad3eb-a029-4b33-92ad-f9782ad91bc1",
+              "name": "folders[0].lists[0].id",
+              "value": "={{ $json.folders[0].lists[0].id }}",
+              "type": "string"
+            },
+            {
+              "id": "a5780b74-4231-4fc4-a178-13ada5b7a69a",
+              "name": "folders[0].lists[0].name",
+              "value": "={{ $json.folders[0].lists[0].name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        624,
+        -208
+      ],
+      "id": "637eadf3-429b-46bb-8d5d-1f5d3000ce04",
+      "name": "Edit Fields2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4d58149d-9283-4af7-b23f-b8646397d33c",
+              "leftValue": "={{ $item(0).$node[\"Webhook\"].json.body.data[0].value }}",
+              "rightValue": "All*",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        400,
+        480
+      ],
+      "id": "b5e3bb29-7e12-4b6f-9f6f-bb90ee0f1fd1",
+      "name": "If Team == All*"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b0ef2868-fabb-46ef-bcd6-e6e48a7b7f6d",
+              "leftValue": "={{ $json.Month }}",
+              "rightValue": "={{ $item(0).$node[\"Webhook\"].json.body.data[1].value }}",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        640,
+        400
+      ],
+      "id": "7a471c07-3659-4a62-bb3d-d9c18d6b7587",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "b0ef2868-fabb-46ef-bcd6-e6e48a7b7f6d",
+              "leftValue": "={{ $json.Month }}",
+              "rightValue": "={{ $item(0).$node[\"Webhook\"].json.body.data[1].value }}",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "390047b8-2b4e-46fa-94c4-4c3e1d02b22a",
+              "leftValue": "={{ $item(0).$node[\"Webhook\"].json.body.data[0].value }}",
+              "rightValue": "={{ $json.Team }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        640,
+        576
+      ],
+      "id": "938a0fa0-a986-4d1d-a6db-cece82c845e2",
+      "name": "Filter by team"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        1904,
+        624
+      ],
+      "id": "e192880b-874f-4687-8403-999f5911f38a",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "XwM8enBL6GGiaFjn",
+          "name": "OpenRouter account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n.e4eweb.space",
+            "connection": "upgrade",
+            "content-length": "1323",
+            "content-type": "application/json",
+            "user-agent": "Paperform/1.0"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "data": [
+              {
+                "title": "Please select a team from the dropdown below, or choose All* to create ClickUp tasks across every team in the Productivity Tracker.",
+                "description": "",
+                "type": "dropdown",
+                "key": "fd71l",
+                "custom_key": null,
+                "value": "AI"
+              },
+              {
+                "title": "Kindly input the Month name in full",
+                "description": "e.g., November, December",
+                "type": "text",
+                "key": "5e7hn",
+                "custom_key": null,
+                "value": "February"
+              },
+              {
+                "title": "Kindly input the year",
+                "description": "e.g., 2025, 2026",
+                "type": "number",
+                "key": "9gk3m",
+                "custom_key": null,
+                "value": "2026"
+              }
+            ],
+            "form_id": "691b116d7d39a3a9c70e5dde",
+            "slug": "p4mkeech",
+            "submission_id": "698443d99b8a68829a0730e3",
+            "created_at": "2026-02-05 08:16:41",
+            "ip_address": "102.91.103.169",
+            "charge": {
+              "products": [],
+              "summary": "",
+              "discount": 0,
+              "discounted_subscriptions": [],
+              "coupon": false,
+              "total": 0,
+              "total_cents": 0,
+              "tax": 0,
+              "tax_percentage": 0,
+              "processing_fee": 0,
+              "authorize": null,
+              "receipt_email": false
+            },
+            "team_id": 2233,
+            "trigger": "submission",
+            "device": {
+              "type": "desktop",
+              "device": "WebKit",
+              "platform": "Windows",
+              "browser": "Chrome",
+              "embedded": false,
+              "url": "https://p4mkeech.paperform.co/",
+              "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+              "utm_source": null,
+              "utm_medium": null,
+              "utm_campaign": null,
+              "utm_term": null,
+              "utm_content": null,
+              "ip_address": "102.91.103.169"
+            }
+          },
+          "webhookUrl": "https://n8n.e4eweb.space/webhook/dda8edcb-8962-466b-a30f-43cf67bce5c3",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "Split Out1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Productivity Tracker": {
+      "main": [
+        [
+          {
+            "node": "Clean GoogleSheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean GoogleSheet": {
+      "main": [
+        [
+          {
+            "node": "If Team == All*",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Filter assignee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "POST Task to Clickup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Filter assignee",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter assignee": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Productivity Tracker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST Task to Clickup": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Team == All*": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Filter by team",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter by team": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "f6989d0a-87b6-4a65-a6f6-85fd007cd0cf",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d36d44bc86c7c7c438594c4a6452789f9316c71e66b860c3403ad4c2355c8405"
+  },
+  "id": "R0vrn5DAimrTAgp3",
+  "tags": []
+}

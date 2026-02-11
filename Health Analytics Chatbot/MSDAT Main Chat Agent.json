@@ -1,0 +1,979 @@
+{
+  "name": "MSDAT Main Chat Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body.chatInput }}",
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "<|START_SYSTEM_PROMPT|>\n\n<|ROLE|>\nYou are MSDAT Assistant, a highly knowledgeable, helpful, and professional AI chatbot for the Multisource Data Analytics and Triangulation (MSDAT) platform. Your core function is to empower users to access and understand Nigeria's health data effectively.\n</|ROLE|>\n\n<|GOAL|>\nYour primary goal is to guide users through the MSDAT platform, accurately provide health indicator information, and assist them in interpreting health data, ensuring a clear and user-friendly experience at all times.\n</|GOAL|>\n\n<|CORE_RESPONSIBILITIES|>\n1. Understand User Intent: Accurately interpret user queries related to health indicators, data values, metadata, trends/statistics, and platform navigation.\n2. Provide Health Data & Metadata: Retrieve and present specific health indicator values, along with their essential metadata (such as definitions, data sources, time periods, and locations).\n3. Offer Relevant Insights: Provide clear and concise insights derived from the data when appropriate.\n4. Facilitate Platform Navigation: Help users navigate through the information found in MSDAT documents or search results provided to you.\n</|CORE_RESPONSIBILITIES|>\n\n<|BEHAVIORAL_GUIDELINES|>\nTone & Persona: Maintain a friendly, professional, and business-casual tone. Speak like a human assistant, not a robotic system.\nAccuracy & Reliability: Always base your responses exclusively on verified data or content retrieved via your connected tools. Do not invent or guess information.\nTransparency: If specific information is missing or unavailable, politely inform the user.\nClarity & Jargon-Free: Ensure all explanations and responses are clear, easy to understand, and free of technical jargon.\nEngagement: After providing a concise response, politely ask if the user requires more details or has further questions.\n</|BEHAVIORAL_GUIDELINES|>\n\n<|DATA_RETRIEVAL_POLICY|>\nYou can retrieve the value of an indicator directly from a PostgreSQL database through the MCP Client tool. When a user asks for the value of an indicator, a statistic, or a trend, construct and execute appropriate SQL queries to extract the information directly from the database.\n\nAll indicator values must be obtained directly from the database using contextual information provided in the user’s query and verified normalized parameters.\n\nMANDATORY STEP BEFORE SQL:\n- Before constructing any SQL query, you must first call the sub-workflow tool named “Deduce parameters.”\n\nThe “Deduce parameters” sub-workflow analyzes the user’s query and returns an object containing up to three deduced parameters:\n- indicator\n- location\n- datasource\n\nEach of these parameters may or may not be present, depending on the nature of the user’s question.\nFor example:\n- A query like “What is the HIV prevalence in Nigeria?” may return only the indicator and location.\n- A query like “Show me NDHS data on malaria incidence.” may return indicator and datasource.\n- A general question like “What are the available periods for the NCDC datasource?” may return only datasource.\n\nLOCATION NORMALIZATION AND VERIFICATION (CRITICAL):\nYou also have access to a Location table (a vector document) that contains normalized names for all Nigeria locations:\n- All 36 normalized State names (State level)\n- All normalized LGA names (LGA level), where the names typically end with “LGA”\n\nYou must use this Location table to prevent incorrect granularity (for example, returning LGA results when the user asked for State results).\n\nRules:\n1. If the user asks for a trend or a statistic WITHOUT supplying a particular location, you must consult the Location table to determine the appropriate location scope implied by the question:\n   - If the question explicitly mentions “state” (e.g., “Which state has the highest immunization coverage?”), treat the request as State-level comparison and use the normalized State list from the Location table.\n   - If the question explicitly mentions “LGA” (or implies LGA-level), treat the request as LGA-level and use normalized LGA names from the Location table (typically ending in “LGA”).\n   - If the question does not specify State or LGA and does not provide a location, default to the highest appropriate general level implied by the wording (for example, “in Nigeria” implies National; “by state” implies State-level). If the level cannot be inferred, transparently state what is missing.\n\n2. If the user asks for State-level results but does not provide a specific state:\n   - Reference the normalized State names from the Location table and ensure your query targets State-level locations only.\n   - Do not accidentally return LGA-level results.\n\n3. If the user asks for LGA-level results:\n   - Reference the normalized LGA names from the Location table (usually ending in “LGA”) and ensure your query targets LGA-level locations only.\n\n4. Passing location for verification:\n   - Even when you deduce or select a location (state or LGA) from the Location table, you must pass that location back through the “Deduce parameters” sub-workflow (as part of the user’s query context or as an explicit verification step) to confirm the normalized location name exists in the MSDAT database.\n   - Only use verified/normalized location names when constructing SQL WHERE clauses.\n\n5. Queries that require “highest”, “lowest”, “top”, “ranking”, “comparison”, or “which location has the most/least”:\n   - You must run a comparative query across the correct location level (State vs LGA).\n   - Do not return a single arbitrary location. Return the correct location with the highest/lowest value based on the database.\n   - If period, datasource, or value_type is needed and cannot be deduced, transparently state what is missing and what assumption you used (if any) or what cannot be answered.\n\nREFERENCE QUERY AND SCHEMA (DO NOT ASSUME OTHER TABLES):\nUse ONLY these tables and joins, as shown here:\nSELECT \n  ind.full_name AS indicator,\n  data.period AS period,\n  loc.name AS location,\n  source.datasource AS datasource,\n  data.value AS value,\n  vt.value_type AS value_type\nFROM data_data AS data\nJOIN data_indicator AS ind ON ind.id = data.indicator_id\nJOIN data_location AS loc ON loc.id = data.location_id\nJOIN data_datasource AS source ON source.id = data.datasource_id\nJOIN data_valuetype AS vt ON vt.id = data.value_type_id\nWHERE source.datasource = 'NDHS';\n\nIMPORTANT:\n- Do not assume or create any tables or schemas beyond those explicitly shown in the sample query above.\n- Always rely on the “Deduce parameters” tool to obtain and/or verify the correct indicator, location, or datasource names.\n- Use whichever deduced parameters apply; it is not mandatory to include all three parameters, only those relevant and available.\n- Always clearly state the datasource referenced in your response.\n- Ensure the location scope matches the user’s intent (State vs LGA) using the Location table normalization rules above.\n</|DATA_RETRIEVAL_POLICY|>\n\n<|KNOWLEDGE_BASE_MSDAT_PLATFORM_STRUCTURE|>\nThe MSDAT platform organizes data into six main program areas, encompassing multiple sub-dashboards:\n\nHealth Inputs: Health Facilities, Health Financing, Health Workforce, Health Facilities Finder, Multi-Source Health Facilities Profile\n\nHealth Outputs: Health Service Access, Health Service Uptake (Monthly), Health Service Uptake (Quarterly), Monthly NHMIS Insights\n\nHealth Outcomes: Health Outcomes and Service Coverage, Quarterly Performance Assessment, Disease Surveillance\n\nAdvanced Analytics: Correlation Analysis, Descriptive Analysis, Indicator Comparison, Predictive Analysis, Multi-Source Indicator Comparison, Bubble Chart Analysis, Advanced Triangulation\n\nPopulation: Demographics, GIS Mapping\n\nThematic Dashboards: HIV/AIDS Repository 1, HIV/AIDS Repository 2, Disease Surveillance (NCDC), CEmONC, NDHS Tracker\n</|KNOWLEDGE_BASE_MSDAT_PLATFORM_STRUCTURE|>\n\n<|RESPONSE_FORMATTING_RULES|>\nConciseness: Responses must be direct and informative.\nSentence Structure: Use continuous sentences for explanations or definitions. Use bullet points for lists or multiple options.\nValue Statements: When reporting an indicator’s value, provide it in a clear, factual sentence.\nComparisons & Evaluations: Provide concise, human-readable insights without showing raw calculations.\nReferencing: For data retrieval, always explicitly reference the data source from which the indicator value was obtained, using an introductory phrase such as: According to the [datasource]...\nOutput Restrictions: Do not use markdown formatting (bold, italics, etc.) in user-facing responses.\n</|RESPONSE_FORMATTING_RULES|>\n\n<|END_SYSTEM_PROMPT|>"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
+      "position": [
+        1008,
+        -176
+      ],
+      "id": "e6ca61c6-99c0-4c58-9829-13ee29f86365",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook').item.json.body.sessionId }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        2608,
+        144
+      ],
+      "id": "0fb1f02e-6573-4720-bafd-ff291265ca7d",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:v1.5"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        2368,
+        352
+      ],
+      "id": "e2f9e690-1b89-4c95-a0db-762cb790ab69",
+      "name": "Embeddings Ollama",
+      "credentials": {
+        "ollamaApi": {
+          "id": "xHuYe0MDGOs9IpBW",
+          "name": "Local Ollama service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:v1.5"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        1408,
+        352
+      ],
+      "id": "c0885031-5e16-4750-a979-70e9c2245b23",
+      "name": "Embeddings Ollama2",
+      "credentials": {
+        "ollamaApi": {
+          "id": "xHuYe0MDGOs9IpBW",
+          "name": "Local Ollama service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:v1.5"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        1728,
+        352
+      ],
+      "id": "4be3404f-29d7-4cc8-867c-a434f5160b5e",
+      "name": "Embeddings Ollama1",
+      "credentials": {
+        "ollamaApi": {
+          "id": "xHuYe0MDGOs9IpBW",
+          "name": "Local Ollama service"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+      "typeVersion": 1,
+      "position": [
+        1184,
+        144
+      ],
+      "id": "c72a78cf-9842-45ee-a052-9283a9868cec",
+      "name": "Calculator"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        752,
+        144
+      ],
+      "id": "9dd401d2-faaa-47dd-b9ec-6f1520b8a50a",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "brD9ZGNYfNwm4Ay9",
+          "name": "e4eAI OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Returns documents containing MSDAT indicator metadata, organized and sorted by datasource-specific indicators.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "datasource_specific_indicators",
+          "mode": "list",
+          "cachedResultName": "datasource_specific_indicators"
+        },
+        "topK": 20,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        1312,
+        144
+      ],
+      "id": "ea0fe132-4300-489c-af63-c454dc3b2b67",
+      "name": "Datasource Specific Indicators",
+      "credentials": {
+        "qdrantApi": {
+          "id": "sFfERYppMeBnFNeA",
+          "name": "Local QdrantApi database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Returns documents of information on MSDAT datasources valuetypes such as survey, estimate and routine.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "datasources_valuetypes",
+          "mode": "list",
+          "cachedResultName": "datasources_valuetypes"
+        },
+        "topK": 20,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        1632,
+        144
+      ],
+      "id": "be73064b-4ac3-44f9-b6e0-5b1363262145",
+      "name": "Datasources valuetypes",
+      "credentials": {
+        "qdrantApi": {
+          "id": "sFfERYppMeBnFNeA",
+          "name": "Local QdrantApi database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Returns documents of information on MSDAT datasources metadata, such as id, datasource, full name, description, methodology, subnational data and Classification\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "datasources_metadata",
+          "mode": "list",
+          "cachedResultName": "datasources_metadata"
+        },
+        "topK": 20,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        1952,
+        144
+      ],
+      "id": "0c250d73-db3f-462d-b3ff-c2aaa0aea1e6",
+      "name": "Datasources metadata",
+      "credentials": {
+        "qdrantApi": {
+          "id": "sFfERYppMeBnFNeA",
+          "name": "Local QdrantApi database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Returns a document containing information on the locations from which health data and reports were collected which includes States and LGAs in Nigeria.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "location_table",
+          "mode": "list",
+          "cachedResultName": "location_table"
+        },
+        "topK": 20,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        2272,
+        144
+      ],
+      "id": "eb3c158a-753f-40b3-8281-e61399f9bcf1",
+      "name": "Location Table",
+      "credentials": {
+        "qdrantApi": {
+          "id": "sFfERYppMeBnFNeA",
+          "name": "Local QdrantApi database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "nomic-embed-text:v1.5"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOllama",
+      "typeVersion": 1,
+      "position": [
+        2048,
+        352
+      ],
+      "id": "327d0e2c-6f48-4faa-86ec-eae14886859d",
+      "name": "Embeddings Ollama3",
+      "credentials": {
+        "ollamaApi": {
+          "id": "xHuYe0MDGOs9IpBW",
+          "name": "Local Ollama service"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b8c8b5e1-edfd-4c66-acf9-1901b4d32dfc",
+              "name": "sessionId",
+              "value": "={{ $('Webhook').item.json.body.sessionId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2288,
+        -176
+      ],
+      "id": "c1a35243-7d0c-417c-9fc7-678641762dce",
+      "name": "Edit Fields",
+      "notesInFlow": true,
+      "notes": "Set session Id from chat input"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryManager",
+      "typeVersion": 1.1,
+      "position": [
+        2544,
+        -176
+      ],
+      "id": "b550a016-a9a5-4b3c-b169-9f243166231b",
+      "name": "Chat Memory Manager"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://script.google.com/macros/s/AKfycbxzq4JxSfBw7lrBlqonYdGnDh5UaPHvqGa7FtH3LSDSuO1fjsSCQz_sHDjn5V07jGrl-g/exec",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "messages",
+              "value": "={{ $json.messages }}"
+            },
+            {
+              "name": "messagesCount",
+              "value": "={{ $json.messagesCount }}"
+            },
+            {
+              "name": "sessionId",
+              "value": "={{ $('Webhook').item.json.body.sessionId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2928,
+        -176
+      ],
+      "id": "7834c19b-99f0-425e-a9b5-0f461dd22110",
+      "name": "POST transcripts",
+      "executeOnce": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "7038e292-511b-49ca-94ba-92738219de03",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        560,
+        -176
+      ],
+      "id": "73e0a341-5925-46be-a366-0404ea02efc7",
+      "name": "Webhook",
+      "webhookId": "7038e292-511b-49ca-94ba-92738219de03"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $('AI Agent').item.json.output }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        3136,
+        -176
+      ],
+      "id": "8f4a03ac-1d75-40d8-9f7e-90c210034834",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://activepieces.e4eweb.space/api/v1/mcp/fCGpQ4m5RL2XZ9Ra0JgNO/sse",
+        "serverTransport": "httpStreamable"
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.1,
+      "position": [
+        1072,
+        144
+      ],
+      "id": "b346ce3a-5991-4148-88d6-b1fddb3d3352",
+      "name": "MCP Client"
+    },
+    {
+      "parameters": {
+        "description": "Call this tool to get the exact names of the data parameters inferred from the user's query.",
+        "workflowId": {
+          "__rl": true,
+          "value": "3iFjMrBdX4O55hG2",
+          "mode": "list",
+          "cachedResultName": "MSDAT Sub Agent"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "aiQuery": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('aiQuery', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            "aiQuery"
+          ],
+          "schema": [
+            {
+              "id": "aiQuery",
+              "displayName": "aiQuery",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        912,
+        144
+      ],
+      "id": "7efe4629-6d0d-4ea1-9892-02a3e84fb388",
+      "name": "Deduce parameters"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-5.2",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        576,
+        144
+      ],
+      "id": "ee607277-fec5-492d-b9c0-3aa9a5076033",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "XwM8enBL6GGiaFjn",
+          "name": "OpenRouter account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "d9d46d8a-e3d9-476a-8156-03febb5991a2",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        496,
+        -880
+      ],
+      "id": "26a454dd-3179-41f7-bda8-8115524bb0a8",
+      "name": "Webhook (Social Media Post)",
+      "webhookId": "d9d46d8a-e3d9-476a-8156-03febb5991a2"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Kindly query for the parameters below:\n- Indicator(s): {{ $json.body.indicator }}\n- Location: Nigeria",
+        "hasOutputParser": true,
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "<|START_SYSTEM_PROMPT|>\n\n<|INSTRUCTION|>\n\nYou can retrieve the value of an indicator directly from a PostgreSQL database through the MCP Client tool. When a user requests one or more indicators to be queried, construct and execute appropriate SQL queries to extract the information directly from the database.\n\nAll indicator values must be obtained directly from the database using contextual information provided in the user’s query.\n\nThe AI agent has access to an Output Parser and must structure all responses strictly in valid JSON format, conforming to the schema defined below.\n\n────────────────────\nMULTI-INDICATOR RULE\n────────────────────\n- A user may supply one or more indicators in a single query.\n- For EACH indicator, you must return up to three (3) records, following the OUTPUT REQUIREMENTS below.\n- The total number of JSON objects returned MUST scale linearly based on the number of indicators:\n\n  - 1 indicator → 3 records  \n  - 2 indicators → 6 records  \n  - 3 indicators → 9 records  \n\n- Records for different indicators must not be merged or collapsed.\n- Each JSON object must explicitly state which indicator it belongs to.\n\n────────────────────\nOUTPUT REQUIREMENTS\n────────────────────\n- Always return exactly three (3) records PER indicator, where possible.\n- Each record must represent a distinct period, ordered from most recent to least recent.\n- Each record must represent a distinct datasource.\n- Do not return multiple rows from the same datasource for the same indicator.\n- Do not return multiple rows for the same period for the same indicator.\n- If the same indicator exists across multiple datasources, prioritize returning values from different datasources.\n- If fewer than three distinct datasources or periods exist for an indicator, return all available valid records without duplication.\n\n────────────────────\nUSER INPUT CONSTRAINTS\n────────────────────\n- The user will provide only:\n  - indicator (single or multiple)\n  - location\n\nDatasource, period, and value_type must be inferred strictly from the database contents and must never be assumed or fabricated.\n\nBefore constructing any SQL query, you must first call the sub-workflow tool named “Deduce parameters.”\n\nThis sub-workflow analyzes the user’s query and returns an object containing deduced parameters:\n- indicator (single or array of indicators)\n- location\n\nWhen multiple indicators are returned, you must loop over each indicator independently and apply the same querying logic to each one.\n\nConstruct SQL queries using only the indicator(s) and location parameters returned by the sub-workflow. In the final response, include all fields defined in the output schema and return all values exactly as stored in the database without alteration.\n\n────────────────────\nJSON OUTPUT SCHEMA (STRICT)\n────────────────────\n\nYour final response must be a single JSON array, matching the following structure exactly:\n\n[\n  {\n    \"indicator\": \"Prevalence of HIV\",\n    \"period\": 2023,\n    \"datasource\": \"WHO-GHO\",\n    \"location\": \"Nigeria\",\n    \"value\": 1.4,\n    \"value_type\": \"Estimate\"\n  }\n]\n\nWhen multiple indicators are requested, this array will contain 6, 9, or more objects (3 per indicator), ordered by indicator grouping and recency.\n\n────────────────────\nREFERENCE QUERY AND SCHEMA\n────────────────────\n\nSELECT \n  ind.full_name AS indicator,\n  data.period AS period,\n  loc.name AS location,\n  source.datasource AS datasource,\n  data.value AS value,\n  vt.value_type AS value_type\nFROM data_data AS data\nJOIN data_indicator AS ind ON ind.id = data.indicator_id\nJOIN data_location AS loc ON loc.id = data.location_id\nJOIN data_datasource AS source ON source.id = data.datasource_id\nJOIN data_valuetype AS vt ON vt.id = data.value_type_id;\n\n────────────────────\nIMPORTANT RULES\n────────────────────\n- Do not assume or create any tables or schemas beyond those explicitly shown above.\n- Always rely on the “Deduce parameters” tool to obtain the correct indicator name(s).\n- Construct SQL queries dynamically using only deduced parameters relevant to the user’s intent.\n- Apply all output constraints independently for each indicator.\n- Always ensure each record explicitly states its datasource and indicator in the JSON output.\n\n</|INSTRUCTION|>\n\n<|END_SYSTEM_PROMPT|>"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
+      "position": [
+        784,
+        -880
+      ],
+      "id": "78cf9e9c-c6e1-4142-bcca-9c618c49f513",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        672,
+        -640
+      ],
+      "id": "cb1da334-dbca-4f38-9e8f-73a6caa397a4",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "brD9ZGNYfNwm4Ay9",
+          "name": "e4eAI OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://activepieces.e4eweb.space/api/v1/mcp/fCGpQ4m5RL2XZ9Ra0JgNO/sse",
+        "serverTransport": "httpStreamable"
+      },
+      "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+      "typeVersion": 1.1,
+      "position": [
+        1040,
+        -640
+      ],
+      "id": "af775735-80d5-4eb7-97b7-f5174d9d1c2a",
+      "name": "MCP Client1"
+    },
+    {
+      "parameters": {
+        "description": "Call this tool to get the exact names of the data parameters inferred from the user's query.",
+        "workflowId": {
+          "__rl": true,
+          "value": "3iFjMrBdX4O55hG2",
+          "mode": "list",
+          "cachedResultName": "MSDAT Sub Agent"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "aiQuery": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('aiQuery', ``, 'string') }}"
+          },
+          "matchingColumns": [
+            "aiQuery"
+          ],
+          "schema": [
+            {
+              "id": "aiQuery",
+              "displayName": "aiQuery",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [
+        848,
+        -640
+      ],
+      "id": "b9d281ec-2735-46f8-bd25-38f703b66519",
+      "name": "Deduce parameters1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        512,
+        -640
+      ],
+      "id": "7da32d37-3008-4bb0-b8c4-a1b2e9f23919",
+      "name": "OpenRouter Chat Model1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "XwM8enBL6GGiaFjn",
+          "name": "OpenRouter account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "[\n  {\n    \"indicator\": \"Prevalence of HIV\",\n    \"period\": 2023,\n    \"datasource\": \"WHO-GHO\",\n    \"location\": \"Nigeria\",\n    \"value\": 1.4,\n    \"value_type\": \"Estimate\"\n  },\n  {\n    \"indicator\": \"Prevalence of HIV\",\n    \"period\": 2021,\n    \"datasource\": \"World Bank\",\n    \"location\": \"Nigeria\",\n    \"value\": 1.3,\n    \"value_type\": \"Estimate\"\n  },\n  {\n    \"indicator\": \"Prevalence of HIV\",\n    \"period\": 2019,\n    \"datasource\": \"UNAIDS\",\n    \"location\": \"Nigeria\",\n    \"value\": 1.5,\n    \"value_type\": \"Estimate\"\n  }\n]"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1200,
+        -640
+      ],
+      "id": "422b60db-9b35-42ee-b0cb-b89d546ccd6a",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "respondWith": "allIncomingItems",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1168,
+        -880
+      ],
+      "id": "c1d618a0-ca35-40ef-b382-8536275e7574",
+      "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "content": "## MSDAT Social Media Post (Query Indicator Value) \n**Double click** to edit me. [Guide](https://docs.n8n.io/workflows/sticky-notes/)",
+        "height": 496,
+        "width": 960,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        432,
+        -976
+      ],
+      "id": "433d5192-6948-42bd-89c7-d8e83511000a",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## MSDAT Data & Metadata Chatbot \n**Double click** to edit me. [Guide](https://docs.n8n.io/workflows/sticky-notes/)",
+        "height": 784,
+        "width": 2960,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        432,
+        -272
+      ],
+      "id": "bd2be08f-5dc2-45f2-98d4-855f2e2afa33",
+      "name": "Sticky Note1"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n.e4eweb.space",
+            "connection": "upgrade",
+            "content-length": "112",
+            "sec-ch-ua-platform": "\"Windows\"",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
+            "sec-ch-ua": "\"Chromium\";v=\"142\", \"Google Chrome\";v=\"142\", \"Not_A Brand\";v=\"99\"",
+            "content-type": "application/json",
+            "sec-ch-ua-mobile": "?0",
+            "accept": "*/*",
+            "origin": "https://msdat.fmohconnect.gov.ng",
+            "sec-fetch-site": "cross-site",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-dest": "empty",
+            "referer": "https://msdat.fmohconnect.gov.ng/",
+            "accept-encoding": "gzip, deflate, br, zstd",
+            "accept-language": "en-US,en;q=0.9"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "sessionId": "e318bb47-bca1-4ee1-bec3-06e7a4742472",
+            "chatInput": "what sources do skilled birth attendance have"
+          },
+          "webhookUrl": "https://n8n.e4eweb.space/webhook/7038e292-511b-49ca-94ba-92738219de03",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Chat Memory Manager",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Location Table",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama2": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Datasource Specific Indicators",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Datasources valuetypes",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculator": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Datasource Specific Indicators": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Datasources valuetypes": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Datasources metadata": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Location Table": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Ollama3": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Datasources metadata",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Chat Memory Manager",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Memory Manager": {
+      "main": [
+        [
+          {
+            "node": "POST transcripts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST transcripts": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        []
+      ]
+    },
+    "MCP Client": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deduce parameters": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook (Social Media Post)": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Deduce parameters1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MCP Client1": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "cf2c4a75-9d24-4ee4-ac8b-7447141350d4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d36d44bc86c7c7c438594c4a6452789f9316c71e66b860c3403ad4c2355c8405"
+  },
+  "id": "ZSa2TkkX57AVnhXh",
+  "tags": []
+}

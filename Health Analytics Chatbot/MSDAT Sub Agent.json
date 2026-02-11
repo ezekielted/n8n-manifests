@@ -1,0 +1,161 @@
+{
+  "name": "MSDAT Sub Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1No7oRZIomJJ2UcdVSUO7G48QgBgY1-GazW4-ZEj6rqc",
+          "mode": "list",
+          "cachedResultName": "MSDAT Normalized Data Design (3)",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1No7oRZIomJJ2UcdVSUO7G48QgBgY1-GazW4-ZEj6rqc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 215587646,
+          "mode": "list",
+          "cachedResultName": "data_source_specific_indicators",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1No7oRZIomJJ2UcdVSUO7G48QgBgY1-GazW4-ZEj6rqc/edit#gid=215587646"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        0,
+        0
+      ],
+      "id": "c9edc40c-8f39-4611-aef9-5d3f01e29084",
+      "name": "Get Normalized Sheet",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "6xLIlihki3GMsJpR",
+          "name": "AI Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "aiQuery",
+              "type": "any"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -224,
+        0
+      ],
+      "id": "b3f6f23a-1d92-4b1d-894a-02c59b85c44e",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "jsCode": "const chatInput = $('When Executed by Another Workflow').first().json.aiQuery;\nconst normalizedSheetData = $('Get Normalized Sheet').all().map(item => item.json);\nconst vlookupData = $('Get Location Table').all().map(item => item.json);\n\n// --- Helper: simple fuzzy match ---\nfunction findBestMatch(mainString, options) {\n  if (!mainString || !Array.isArray(options) || options.length === 0) return null;\n  const lowerCaseMainString = mainString.toLowerCase();\n  let bestMatch = null;\n  let highestScore = 0;\n\n  for (const option of options) {\n    if (!option || typeof option !== 'string') continue;\n    const lowerCaseOption = option.toLowerCase();\n    let score = 0;\n\n    if (lowerCaseMainString.includes(lowerCaseOption)) score = 1;\n    else {\n      const mainWords = new Set(lowerCaseMainString.match(/\\b\\w+\\b/g) || []);\n      const optionWords = lowerCaseOption.match(/\\b\\w+\\b/g) || [];\n      const matched = optionWords.filter(w => mainWords.has(w)).length;\n      score = matched / optionWords.length;\n    }\n\n    if (score > highestScore) {\n      highestScore = score;\n      bestMatch = option;\n    }\n  }\n\n  return highestScore >= 0.4 ? bestMatch : null;\n}\n\n// --- Helper: safely extract the \"Location (MSDAT)\" field ---\nfunction getLocationField(item) {\n  const key = Object.keys(item).find(k =>\n    k.toLowerCase().replace(/\\s+/g, '') === 'location(msdat)'\n  );\n  return key ? item[key] : null;\n}\n\n// --- Step 1: Build available reference options ---\nconst availableIndicators = [...new Set(normalizedSheetData.map(item => item.indicator_id).filter(Boolean))];\nconst availableDatasources = [...new Set(normalizedSheetData.map(item => item.datasource_id).filter(Boolean))];\nconst availableLocations = [...new Set(vlookupData.map(getLocationField).filter(Boolean))];\n\n// --- Step 2: AI Prompt ---\nconst aiPrompt = `\nYou are a health data reasoning model for the MSDAT system.\nYour job is to deduce which indicator, location, and datasource are being referred to in a user query.\n\nUser Query:\n\"${chatInput}\"\n\nRules:\n- Match phrases to the closest semantic indicator, location, or datasource.\n- If no datasource is mentioned, return \"not_applicable\".\n- Return \"not_applicable\" only if no reasonable match exists.\n\nAvailable Indicators:\n${availableIndicators.map((i, idx) => `${idx + 1}. ${i}`).join(\"\\n\")}\n\nAvailable Datasources:\n${availableDatasources.join(\", \")}\n\nAvailable Locations:\n${availableLocations.slice(0, 50).join(\", \")}${availableLocations.length > 50 ? \", ...\" : \"\"}\n\nReturn ONLY valid JSON:\n{\n  \"indicator_id\": \"...\",\n  \"location\": \"...\",\n  \"datasource\": \"...\"\n}\n`;\n\n// --- Step 3: AI call via OpenRouter ---\nlet aiResult = {\n  indicator_id: \"not_applicable\",\n  location: \"not_applicable\",\n  datasource: \"not_applicable\"\n};\n\ntry {\n  const response = await axios.post(\n    'https://openrouter.ai/api/v1/chat/completions',\n    {\n      model: 'openai/gpt-4.1-mini',\n      messages: [\n        { role: 'system', content: 'You are a precise JSON-only response engine.' },\n        { role: 'user', content: aiPrompt }\n      ],\n      temperature: 0.1\n    },\n    {\n      headers: {\n        'Authorization': 'Bearer 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',\n        'Content-Type': 'application/json',\n        'HTTP-Referer': 'https://msdat.ai',\n        'X-Title': 'MSDAT Indicator Resolver'\n      }\n    }\n  );\n\n  const rawResponse = response.data?.choices?.[0]?.message?.content || \"\";\n  const parsed = JSON.parse(rawResponse);\n\n  aiResult = {\n    indicator_id: parsed.indicator_id || \"not_applicable\",\n    location: parsed.location || \"not_applicable\",\n    datasource: parsed.datasource || \"not_applicable\"\n  };\n\n} catch (error) {\n  console.error(\"AI request failed:\", error.response?.data || error.message || error);\n}\n\n// --- Step 4: Refine matches using fuzzy logic ---\nconst finalIndicator =\n  findBestMatch(aiResult.indicator_id, availableIndicators) ||\n  findBestMatch(chatInput, availableIndicators) ||\n  \"not_applicable\";\n\nconst finalDatasource =\n  findBestMatch(aiResult.datasource, availableDatasources) ||\n  findBestMatch(chatInput, availableDatasources) ||\n  \"not_applicable\";\n\nconst finalLocation =\n  findBestMatch(aiResult.location, availableLocations) ||\n  findBestMatch(chatInput, availableLocations) ||\n  \"not_applicable\";\n\n// --- Step 5: Return structured output ---\nreturn [\n  {\n    indicator_id: finalIndicator,\n    location: finalLocation,\n    datasource: finalDatasource\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "e2d43062-e9ab-4c85-b4eb-09430d3707c2",
+      "name": "Deduce parameters"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1T8YfA2Ktpb_tqf1jkc3wlx6HIRTBUnkp3sdWlmkPBCk",
+          "mode": "list",
+          "cachedResultName": "Vlookup",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1T8YfA2Ktpb_tqf1jkc3wlx6HIRTBUnkp3sdWlmkPBCk/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 13371671,
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1T8YfA2Ktpb_tqf1jkc3wlx6HIRTBUnkp3sdWlmkPBCk/edit#gid=13371671"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        208,
+        0
+      ],
+      "id": "7cfa55b7-c888-4eea-9d1f-ce6d74b72b6a",
+      "name": "Get Location Table",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000,
+      "executeOnce": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "6xLIlihki3GMsJpR",
+          "name": "AI Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Get Normalized Sheet": {
+      "main": [
+        [
+          {
+            "node": "Get Location Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Get Normalized Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deduce parameters": {
+      "main": [
+        []
+      ]
+    },
+    "Get Location Table": {
+      "main": [
+        [
+          {
+            "node": "Deduce parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a3a47ea9-fc03-4aff-8fe5-bd528123626f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d36d44bc86c7c7c438594c4a6452789f9316c71e66b860c3403ad4c2355c8405"
+  },
+  "id": "3iFjMrBdX4O55hG2",
+  "tags": []
+}

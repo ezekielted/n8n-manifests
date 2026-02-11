@@ -1,0 +1,693 @@
+{
+  "name": "e4e Slack Moderator",
+  "nodes": [
+    {
+      "parameters": {
+        "trigger": [
+          "message",
+          "file_share"
+        ],
+        "watchWorkspace": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.slackTrigger",
+      "typeVersion": 1,
+      "position": [
+        -672,
+        -144
+      ],
+      "id": "2403a497-ac41-4cfe-909e-d91d35f13838",
+      "name": "Slack Trigger",
+      "webhookId": "a1192361-5fa2-4d6d-b5b4-1e4db46e14a2",
+      "credentials": {
+        "slackApi": {
+          "id": "wl7aNw0I8pHwTNzg",
+          "name": "Slack API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "={{ $('Slack Trigger').item.json.channel }}",
+          "mode": "id"
+        },
+        "text": "=Hi <@{{ $('Slack Trigger').item.json[\"user\"] }}>\nYour recent message is quite lengthy and exceeds the acceptable word count. To help keep the channel easy to follow, please edit your post to make it more concise — you can optimize or summarize the key points for clarity. Thank you for your understanding! 🙏",
+        "otherOptions": {
+          "includeLinkToWorkflow": false,
+          "mrkdwn": true
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        672,
+        -432
+      ],
+      "id": "de18d5bc-c0a1-4369-ab87-a7e6305177b1",
+      "name": "Send a message",
+      "webhookId": "472c58fe-6630-4c08-8347-e12aaeb11f93",
+      "executeOnce": true,
+      "credentials": {
+        "slackApi": {
+          "id": "wl7aNw0I8pHwTNzg",
+          "name": "Slack API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "={{ $('Slack Trigger').item.json.channel }}",
+          "mode": "id"
+        },
+        "text": "=Hey <@{{ $('Slack Trigger').item.json[\"user\"] }}>\nIt looks like you’ve uploaded a file directly to Slack.\nKindly delete the uploaded file(s) and share it via a team drive link instead.\n📁 As per our policy, files shouldn’t be uploaded to Slack since they’re hard to find later. 🙏\n\nCC: <@U09FRFGMP>",
+        "otherOptions": {
+          "includeLinkToWorkflow": false,
+          "mrkdwn": true
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        672,
+        144
+      ],
+      "id": "165ed849-a73f-4fbc-974d-9564985f35ce",
+      "name": "Send a message1",
+      "webhookId": "472c58fe-6630-4c08-8347-e12aaeb11f93",
+      "executeOnce": true,
+      "credentials": {
+        "slackApi": {
+          "id": "wl7aNw0I8pHwTNzg",
+          "name": "Slack API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2bdf117c-e9ef-4171-8cf3-2c690b08c0d3",
+              "leftValue": "={{ $('Slack Trigger').item.json.files }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        144
+      ],
+      "id": "ac05ac22-1159-4a68-9c93-aa9365a2131d",
+      "name": "If files exist"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f7e40832-9f4e-42cf-a3d0-d011d8ab3996",
+              "leftValue": "={{ $json.result }}",
+              "rightValue": "Flagged",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {
+          "ignoreCase": true
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        -336
+      ],
+      "id": "f12bfb9a-fe8f-46c5-ab7c-8e4e77bd2e44",
+      "name": "If message flagged"
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = $('Slack Trigger').first().json.text;\nconst charCount = text.length;\nconst result = charCount > 1200 ? \"Flagged\" : \"Pass\";\nreturn { json: { result, charCount } };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        -336
+      ],
+      "id": "bd92554b-8d8f-45f1-b604-077a08c8c36e",
+      "name": "Get character count"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        672,
+        -240
+      ],
+      "id": "240e16dd-dc39-4a1d-a96c-30292ffeeeaf",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        224,
+        240
+      ],
+      "id": "3e25492c-c9be-488d-ae65-c00f65023c20",
+      "name": "No Operation, do nothing1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        224,
+        -528
+      ],
+      "id": "d3a468ef-2632-49eb-97b6-ab02a528879a",
+      "name": "No Operation, do nothing2"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        672,
+        -48
+      ],
+      "id": "a8beb8df-2958-499f-8e0e-1d38bbd884cf",
+      "name": "No Operation, do nothing3"
+    },
+    {
+      "parameters": {
+        "resource": "user",
+        "operation": "getProfile",
+        "user": {
+          "__rl": true,
+          "value": "={{ $('Slack Trigger').item.json.user }}",
+          "mode": "id"
+        }
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        -448,
+        -144
+      ],
+      "id": "c02c60a3-4b0d-4008-92fa-e92150203aa2",
+      "name": "Get a user's profile",
+      "webhookId": "38a1f806-b5f8-42e5-bde7-a85bc56aecc0",
+      "credentials": {
+        "slackApi": {
+          "id": "wl7aNw0I8pHwTNzg",
+          "name": "Slack API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "channel",
+        "operation": "get",
+        "channelId": {
+          "__rl": true,
+          "value": "={{ $('Slack Trigger').item.json.channel }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        -224,
+        -144
+      ],
+      "id": "02f8921f-b83e-44bd-9082-d11a912dcb2b",
+      "name": "Get a channel",
+      "webhookId": "14d3fc72-5d8f-4ff4-90b6-174a435a4685",
+      "credentials": {
+        "slackApi": {
+          "id": "wl7aNw0I8pHwTNzg",
+          "name": "Slack API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1iuABZHxmerA5xXVuHLnSmydcUoAqgawkGB5EGG5SYno",
+          "mode": "list",
+          "cachedResultName": "Slack Channel Defaulters",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iuABZHxmerA5xXVuHLnSmydcUoAqgawkGB5EGG5SYno/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iuABZHxmerA5xXVuHLnSmydcUoAqgawkGB5EGG5SYno/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Team Member": "={{ $('Get a user\\'s profile').item.json.real_name }}",
+            "Channel": "={{ $('Get a channel').item.json.name }}",
+            "Reason for defaulting": "Uploading file(s) to the channel"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Team Member",
+              "displayName": "Team Member",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Channel",
+              "displayName": "Channel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Reason for defaulting",
+              "displayName": "Reason for defaulting",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        896,
+        144
+      ],
+      "id": "8ea87687-cab2-467a-ae50-290a80238d6d",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "6xLIlihki3GMsJpR",
+          "name": "AI Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1iuABZHxmerA5xXVuHLnSmydcUoAqgawkGB5EGG5SYno",
+          "mode": "list",
+          "cachedResultName": "Slack Channel Defaulters",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iuABZHxmerA5xXVuHLnSmydcUoAqgawkGB5EGG5SYno/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1iuABZHxmerA5xXVuHLnSmydcUoAqgawkGB5EGG5SYno/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Team Member": "={{ $('Get a user\\'s profile').item.json.real_name }}",
+            "Channel": "={{ $('Get a channel').item.json.name }}",
+            "Reason for defaulting": "Lengthy message sent to the channel"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Team Member",
+              "displayName": "Team Member",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Channel",
+              "displayName": "Channel",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Reason for defaulting",
+              "displayName": "Reason for defaulting",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        896,
+        -432
+      ],
+      "id": "c21fd5a5-d718-4e86-a4f7-49792129c50a",
+      "name": "Append row in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "6xLIlihki3GMsJpR",
+          "name": "AI Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8b4d0954-394a-454f-9275-a1cfff31cc30",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "pass",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        48
+      ],
+      "id": "6bd785b9-3a2c-4d25-8ced-e3ab9dcac812",
+      "name": "If fileType==image"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Slack Trigger').all();\n\n// Collect all file objects from the Slack messages\nconst files = data\n  .flatMap(item => item.json.files || [])   // Flatten\n  .filter(f => f.filetype);                 // Ensure filetype exists\n\n// Allowed image formats\nconst allowed = [\n  'png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg', 'webp', 'tiff'\n];\n\n// If no files, treat as non-image → flagged\nif (files.length === 0) {\n  return [{ json: { status: \"flagged\" } }];\n}\n\n// Check if ANY file is NOT an image\nconst hasNonImage = files.some(file => {\n  const type = (file.filetype || \"\").toLowerCase();\n  return !allowed.includes(type);\n});\n\n// Output in n8n format\nreturn [\n  {\n    json: {\n      status: hasNonImage ? \"flagged\" : \"pass\"\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        48
+      ],
+      "id": "a9275525-adab-4d60-bec9-0a5fc5ec15e4",
+      "name": "Is fileType==image?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a1aab1a8-2b7d-43c4-938a-b60774d06aa8",
+              "leftValue": "={{ $('Slack Trigger').item.json.text }}",
+              "rightValue": "<!channel>",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "0f6b26db-e0bd-441b-9082-ceaf96bca7b1",
+              "leftValue": "={{ $('Slack Trigger').item.json.text }}",
+              "rightValue": "<@channel>",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "id": "4efd7a56-dfb0-4cd2-82ea-c167f81d50b9",
+              "leftValue": "={{ $('Slack Trigger').item.json.text }}",
+              "rightValue": "@channel",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        -432
+      ],
+      "id": "5fc5d353-298e-4d6c-9db6-2f4f3b696466",
+      "name": "If channel tagged"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Slack Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get a user's profile",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If files exist": {
+      "main": [
+        [
+          {
+            "node": "Is fileType==image?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If message flagged": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get character count": {
+      "main": [
+        [
+          {
+            "node": "If message flagged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a message1": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a user's profile": {
+      "main": [
+        [
+          {
+            "node": "Get a channel",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Operation, do nothing3": {
+      "main": [
+        []
+      ]
+    },
+    "Get a channel": {
+      "main": [
+        [
+          {
+            "node": "If channel tagged",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "If files exist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If fileType==image": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is fileType==image?": {
+      "main": [
+        [
+          {
+            "node": "If fileType==image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If channel tagged": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get character count",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "b20fbb61-f89c-4cac-938c-f318f88050ac",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d36d44bc86c7c7c438594c4a6452789f9316c71e66b860c3403ad4c2355c8405"
+  },
+  "id": "MTVJ2KXZYcBv9f5E",
+  "tags": []
+}
